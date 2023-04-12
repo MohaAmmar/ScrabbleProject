@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "6XN1N/GjSSNgxfvE1pZGXKHJikYv+o47mKj8oCVIZy70NE/Lbsrj8vNL2RhbV8/V7LXBfvQGD3WNLgkRQsKvkw==",
+  "success": true,
+  "projectFilePath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/Project/Scrabble/ScrabbleBot/ScrabbleBot.fsproj",
+  "expectedPackageFiles": [
+    "/Users/mohammadammar/.nuget/packages/fparsec/1.1.1/fparsec.1.1.1.nupkg.sha512",
+    "/Users/mohammadammar/.nuget/packages/fsharp.core/7.0.200/fsharp.core.7.0.200.nupkg.sha512"
+  ],
+  "logs": []
+}
