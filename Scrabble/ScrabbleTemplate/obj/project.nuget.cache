@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "ylyZBiYFTxEQeX0y0djuF2r7nBv9fCdK3DC7fz6T4z0zjkogTbVYr5LSacX+J3pu3a6kJNT2658Hjqky9PymEg==",
+  "dgSpecHash": "P9oUBOPlTz0LjF4wDWgBBrCJuE1Nq6gf2f1FP9zYmfIGgQ44cPuttt5xUfU2BCcW88ZrH89Ec6hb9vDvkFbeVw==",
   "success": true,
-  "projectFilePath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/Project/Scrabble/ScrabbleTemplate/ScrabbleTemplate.fsproj",
+  "projectFilePath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleTemplate/ScrabbleTemplate.fsproj",
   "expectedPackageFiles": [
     "/Users/mohammadammar/.nuget/packages/fparsec/1.1.1/fparsec.1.1.1.nupkg.sha512",
     "/Users/mohammadammar/.nuget/packages/fsharp.core/7.0.200/fsharp.core.7.0.200.nupkg.sha512",

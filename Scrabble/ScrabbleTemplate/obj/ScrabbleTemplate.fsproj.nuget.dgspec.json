@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/Project/Scrabble/ScrabbleTemplate/ScrabbleTemplate.fsproj": {}
+    "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleTemplate/ScrabbleTemplate.fsproj": {}
   },
   "projects": {
-    "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/Project/Scrabble/ScrabbleBot/ScrabbleBot.fsproj": {
+    "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/ScrabbleBot.fsproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/Project/Scrabble/ScrabbleBot/ScrabbleBot.fsproj",
+        "projectUniqueName": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/ScrabbleBot.fsproj",
         "projectName": "ScrabbleBot",
-        "projectPath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/Project/Scrabble/ScrabbleBot/ScrabbleBot.fsproj",
+        "projectPath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/ScrabbleBot.fsproj",
         "packagesPath": "/Users/mohammadammar/.nuget/packages/",
-        "outputPath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/Project/Scrabble/ScrabbleBot/obj/",
+        "outputPath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/Users/mohammadammar/.nuget/NuGet/NuGet.Config"
@@ -66,14 +66,14 @@
         }
       }
     },
-    "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/Project/Scrabble/ScrabbleTemplate/ScrabbleTemplate.fsproj": {
+    "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleTemplate/ScrabbleTemplate.fsproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/Project/Scrabble/ScrabbleTemplate/ScrabbleTemplate.fsproj",
+        "projectUniqueName": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleTemplate/ScrabbleTemplate.fsproj",
         "projectName": "ScrabbleTemplate",
-        "projectPath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/Project/Scrabble/ScrabbleTemplate/ScrabbleTemplate.fsproj",
+        "projectPath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleTemplate/ScrabbleTemplate.fsproj",
         "packagesPath": "/Users/mohammadammar/.nuget/packages/",
-        "outputPath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/Project/Scrabble/ScrabbleTemplate/obj/",
+        "outputPath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleTemplate/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/Users/mohammadammar/.nuget/NuGet/NuGet.Config"
@@ -89,8 +89,8 @@
           "net7.0": {
             "targetAlias": "net7.0",
             "projectReferences": {
-              "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/Project/Scrabble/ScrabbleBot/ScrabbleBot.fsproj": {
-                "projectPath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/Project/Scrabble/ScrabbleBot/ScrabbleBot.fsproj"
+              "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/ScrabbleBot.fsproj": {
+                "projectPath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/ScrabbleBot.fsproj"
               }
             }
           }

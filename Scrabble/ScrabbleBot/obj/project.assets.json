@@ -159,11 +159,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/Project/Scrabble/ScrabbleBot/ScrabbleBot.fsproj",
+      "projectUniqueName": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/ScrabbleBot.fsproj",
       "projectName": "ScrabbleBot",
-      "projectPath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/Project/Scrabble/ScrabbleBot/ScrabbleBot.fsproj",
+      "projectPath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/ScrabbleBot.fsproj",
       "packagesPath": "/Users/mohammadammar/.nuget/packages/",
-      "outputPath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/Project/Scrabble/ScrabbleBot/obj/",
+      "outputPath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/Users/mohammadammar/.nuget/NuGet/NuGet.Config"
