@@ -20,8 +20,8 @@ let spawnMultiples name dict bot =
 let main argv =
     ScrabbleUtil.DebugPrint.toggleDebugPrint false // Change to false to supress debug output
 
-    System.Console.BackgroundColor <- System.ConsoleColor.Red
-    System.Console.ForegroundColor <- System.ConsoleColor.White
+    System.Console.BackgroundColor <- System.ConsoleColor.White
+    System.Console.ForegroundColor <- System.ConsoleColor.Black
     System.Console.Clear()
 
     let board        = ScrabbleUtil.StandardBoard.standardBoard ()
@@ -49,7 +49,7 @@ let main argv =
         None
         
     // Uncomment this line to call your client
-    // let players    = [("Your name here", YourClientName.Scrabble.startGame)]
+    let players    = [("Your name here", YourClientName.Scrabble.startGame)]
     let (dictionary, time) =
         time (fun () -> ScrabbleUtil.Dictionary.mkDict words dictAPI)
 
@@ -57,7 +57,7 @@ let main argv =
 
 
     do ScrabbleServer.Comm.startGame 
-          board dictionary handSize timeout tiles seed port players
+          board dictionary handSize timeout tiles seed port players //string * (bool -> srabbleUtil.dict ...)
     
     ScrabbleUtil.DebugPrint.forcePrint ("Server has terminated. Press Enter to exit program.\n")
     System.Console.ReadLine () |> ignore

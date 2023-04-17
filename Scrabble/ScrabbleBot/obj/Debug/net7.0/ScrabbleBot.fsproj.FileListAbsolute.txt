@@ -37,3 +37,16 @@
 /Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/obj/Debug/net7.0/refint/ScrabbleBot.dll
 /Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/obj/Debug/net7.0/ScrabbleBot.pdb
 /Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/obj/Debug/net7.0/ref/ScrabbleBot.dll
+/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/bin/Debug/net7.0/ScrabbleBot.deps.json
+/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/bin/Debug/net7.0/ScrabbleBot.dll
+/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/bin/Debug/net7.0/ScrabbleBot.pdb
+/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/bin/Debug/net7.0/ScrabbleUtil.dll
+/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/obj/Debug/net7.0/ScrabbleBot.fsproj.AssemblyReference.cache
+/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/obj/Debug/net7.0/ScrabbleBot.AssemblyInfoInputs.cache
+/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/obj/Debug/net7.0/ScrabbleBot.AssemblyInfo.fs
+/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/obj/Debug/net7.0/ScrabbleBot.fsproj.CoreCompileInputs.cache
+/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/obj/Debug/net7.0/ScrabbleBot.fsproj.CopyComplete
+/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/obj/Debug/net7.0/ScrabbleBot.dll
+/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/obj/Debug/net7.0/refint/ScrabbleBot.dll
+/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/obj/Debug/net7.0/ScrabbleBot.pdb
+/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/obj/Debug/net7.0/ref/ScrabbleBot.dll

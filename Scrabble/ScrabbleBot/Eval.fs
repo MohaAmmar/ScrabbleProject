@@ -4,8 +4,17 @@ module internal Eval
 
     open StateMonad
 
-    let add a b = failwith "Not implemented"      
-    let div a b = failwith "Not implemented"      
+    let add a b =
+        a >>= fun x ->
+        b >>= fun y ->
+        ret (x + y)
+
+    let div a b =
+         a >>= fun x ->
+         b >>= fun y ->
+             if y = 0
+             then fail DivisionByZero
+             else ret (x / y)      
 
     type aExp =
         | N of int
@@ -57,11 +66,49 @@ module internal Eval
     let (.>=.) a b = ~~(a .<. b)                (* numeric greater than or equal to *)
     let (.>.) a b = ~~(a .=. b) .&&. (a .>=. b) (* numeric greater than *)    
 
-    let arithEval a : SM<int> = failwith "Not implemented"      
-
-    let charEval c : SM<char> = failwith "Not implemented"      
-
-    let boolEval b : SM<bool> = failwith "Not implemented"
+    let rec arithEval a : SM<int> =
+        match a with
+        | N n -> ret n
+        | V s -> lookup s
+        | WL -> wordLength
+        | PV ax -> arithEval ax >>= (fun x ->  pointValue x)
+        | Add (a,b) -> add (arithEval a) (arithEval b) 
+        | Sub (a,b) -> arithEval a >>= fun x ->
+                       arithEval b >>= fun y ->
+                       ret (x - y)
+        | Mul (a,b) -> arithEval a >>= fun x ->
+                       arithEval b >>= fun y ->
+                       ret (x * y)
+        | Div(a,b) -> div (arithEval a) (arithEval b) 
+        | Mod(a,b) ->  arithEval a >>= fun x ->
+                       arithEval b >>= fun y ->
+                           if y = 0
+                           then fail DivisionByZero
+                           else ret (x % y)
+        | CharToInt c -> (charEval c >>= (fun x -> ret (int(x))))
+    and charEval c : SM<char> =
+        match c with
+        |C c -> ret c
+        |CV ax ->  arithEval ax >>= (fun x ->  characterValue x)
+        |ToUpper c -> charEval c >>= (fun x -> ret (System.Char.ToUpper(x)))
+        |ToLower c -> charEval c >>= (fun x -> ret (System.Char.ToLower(x)))
+        |IntToChar ax -> (arithEval ax >>= (fun x -> ret (char(x))))
+    and boolEval b : SM<bool> =
+       match b with
+       | TT-> ret true
+       | FF -> ret false
+       | AEq (a,b) -> arithEval a >>= fun x ->
+                      arithEval b >>= fun y ->
+                      ret (x = y)
+       | ALt (a,b) -> arithEval a >>= fun x ->
+                      arithEval b >>= fun y ->
+                      ret (x < y)
+       | Not x -> boolEval x >>= (fun x -> ret (x = false))
+       | Conj (a,b) -> boolEval a >>= (fun x ->
+                       boolEval b >>= fun y ->
+                       ret ((x = true) && (y = true)))
+       | IsVowel c -> charEval c >>= (fun x -> ret ("AEIOYUaeioyu".Contains(x)))
+       | IsConsonant c -> charEval c >>= (fun x -> ret ("AEIOYUaeioyu".Contains(x)=false))
 
 
     type stm =                (* statements *)
@@ -97,7 +144,7 @@ module internal Eval
     type word = (char * int) list
     type squareFun = word -> int -> int -> Result<int, Error>
 
-    let stmntToSquareFun stm = failwith "Not implemented"
+    let stmntToSquareFun stm = failwith "Not implemented" //fun w pos acc -> evalStmnt s w (Map.ofList [("_pos_", pos); ("_acc_", acc)]) |> Map.find "_result_";;
 
 
     type coord = int * int

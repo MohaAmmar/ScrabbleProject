@@ -48,13 +48,24 @@ module internal StateMonad
     let push : SM<unit> = 
         S (fun s -> Success ((), {s with vars = Map.empty :: s.vars}))
 
-    let pop : SM<unit> = failwith "Not implemented"      
+    let pop : SM<unit> =
+     S (fun s -> Success ((), {s with vars = s.vars.Tail}))
 
-    let wordLength : SM<int> = failwith "Not implemented"      
+    let wordLength : SM<int> =
+        S (fun s -> Success (s.word.Length, s))
 
-    let characterValue (pos : int) : SM<char> = failwith "Not implemented"      
+    let characterValue (pos : int) : SM<char> =
+         S (fun s ->
+                match s.word |> List.tryItem pos with
+                | None -> Failure (IndexOutOfBounds pos)
+                | Some(c,_) -> Success (c, s)) 
+        
 
-    let pointValue (pos : int) : SM<int> = failwith "Not implemented"      
+    let pointValue (pos : int) : SM<int> =
+        S (fun s ->
+            match s.word |> List.tryItem pos with
+            |Some(_,i) -> Success(i,s)
+            |None -> Failure (IndexOutOfBounds pos))
 
     let lookup (x : string) : SM<int> = 
         let rec aux =
@@ -70,5 +81,23 @@ module internal StateMonad
               | Some v -> Success (v, s)
               | None   -> Failure (VarNotFound x))
 
-    let declare (var : string) : SM<unit> = failwith "Not implemented"   
-    let update (var : string) (value : int) : SM<unit> = failwith "Not implemented"      
+    let declare (var : string) : SM<unit> =
+          S (fun s ->
+            if Set.contains var s.reserved then Failure (ReservedName var)
+            else
+                match s.vars with
+                | [] -> failwith "Empty stack"
+                | m :: ms ->
+                    if Map.containsKey var m then Failure (VarExists var)
+                    else Success ((), {s with vars = (Map.add var 0 m) :: ms}))
+        
+    let update (var : string) (value : int) : SM<unit> =
+        let rec aux v l =
+            match v with
+            | []      -> List.rev l
+            | m :: ms -> 
+                match Map.tryFind var m with
+                | Some v -> List.rev ((Map.add var value m) :: l) @ ms
+                | None   -> aux ms (m::l)
+        S (fun s -> Success ((), {s with vars = aux s.vars []}))
+       
