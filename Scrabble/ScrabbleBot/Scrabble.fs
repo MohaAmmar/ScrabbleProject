@@ -1,4 +1,4 @@
-﻿namespace YourClientName
+﻿namespace SpicyScrabble
 
 open ScrabbleUtil
 open ScrabbleUtil.ServerCommunication
@@ -46,14 +46,17 @@ module State =
         dict          : ScrabbleUtil.Dictionary.Dict
         playerNumber  : uint32
         hand          : MultiSet.MultiSet<uint32>
+        bag           : uint32
+        //brikker i posen
     }
 
-    let mkState b d pn h = {board = b; dict = d;  playerNumber = pn; hand = h }
+    let mkState b d pn h bag = {board = b; dict = d;  playerNumber = pn; hand = h; bag = bag }
 
     let board st         = st.board
     let dict st          = st.dict
     let playerNumber st  = st.playerNumber
     let hand st          = st.hand
+    let bag st = st.bag
 
 module Scrabble =
     open System.Threading
@@ -69,7 +72,7 @@ module Scrabble =
             let move = RegEx.parseMove input
 
             debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
-            send cstream (SMPlay move)
+            send cstream (SMPlay move) //plus brikker, flere mach statements 
 
             let msg = recv cstream
             debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
@@ -118,5 +121,5 @@ module Scrabble =
                   
         let handSet = List.fold (fun acc (x, k) -> MultiSet.add x k acc) MultiSet.empty hand
 
-        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet)
+        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet 70u)
         
