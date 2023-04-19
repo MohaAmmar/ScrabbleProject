@@ -93,7 +93,13 @@ module Scrabble =
                 else send cstream (SMChange exchange)*)
             
             
-            send cstream (SMPlay move)
+            match input with
+            | input when input.StartsWith("move") -> send cstream (SMPlay move)
+            | input when input.StartsWith("exchange") -> send cstream (SMChange exchange)
+            
+            
+            
+            //send cstream (SMPlay move)
             //TODO: handle change and move
 
             let msg = recv cstream
@@ -102,8 +108,8 @@ module Scrabble =
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
-                let movedTiles = List.fold (fun acc ls -> (fst (snd ls))::acc) [] ms
-                let handWithoutMovedTiles = subtract (ofList movedTiles) st.hand
+                let movedTiles = ofList (List.fold (fun acc ls -> (fst (snd ls))::acc) [] ms)
+                let handWithoutMovedTiles = subtract st.hand movedTiles 
                 let newHand = List.fold (fun acc (a, times) -> add a times acc) handWithoutMovedTiles newPieces
                 let newBag = st.bag - uint32(List.length newPieces)
                 
@@ -112,7 +118,9 @@ module Scrabble =
                 aux st'
                 
             | RCM (CMChangeSuccess(newPieces)) ->
-                let newHand = List.fold (fun acc (a, times) -> add a times acc) st.hand newPieces
+                let movedTiles = ofList exchange
+                let handWithoutMovedTiles = subtract st.hand movedTiles 
+                let newHand = List.fold (fun acc (a, times) -> add a times acc) handWithoutMovedTiles newPieces
                 let newBag = st.bag - uint32(List.length newPieces)
                 let st' = State.mkState st.board st.dict st.playerNumber newHand newBag
                 aux st'
