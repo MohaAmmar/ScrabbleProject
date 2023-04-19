@@ -121,8 +121,7 @@ module Scrabble =
                 let movedTiles = ofList exchange
                 let handWithoutMovedTiles = subtract st.hand movedTiles 
                 let newHand = List.fold (fun acc (a, times) -> add a times acc) handWithoutMovedTiles newPieces
-                let newBag = st.bag - uint32(List.length newPieces)
-                let st' = State.mkState st.board st.dict st.playerNumber newHand newBag
+                let st' = State.mkState st.board st.dict st.playerNumber newHand st.bag //hvis der er problem med at der mangler brikker så er det nok her der skal fixes noget
                 aux st'
                 
             | RCM (CMPlayed (pid, ms, points)) -> // not relevant : since we do not offer multiplayer
