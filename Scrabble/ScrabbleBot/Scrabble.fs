@@ -1,12 +1,13 @@
-﻿namespace YourClientName
+﻿namespace SpicyScrabble
 
+open System.Xml.Xsl
 open ScrabbleUtil
 open ScrabbleUtil.ServerCommunication
 
 open System.IO
 
 open ScrabbleUtil.DebugPrint
-
+open MultiSet
 // The RegEx module is only used to parse human input. It is not used for the final product.
 
 module RegEx =
@@ -46,14 +47,18 @@ module State =
         dict          : ScrabbleUtil.Dictionary.Dict
         playerNumber  : uint32
         hand          : MultiSet.MultiSet<uint32>
+        bag           : uint32
+        //brikker i posen
+        // TODO: add player turn ? It is said in the assignment we need to know when it is our turn
     }
 
-    let mkState b d pn h = {board = b; dict = d;  playerNumber = pn; hand = h }
+    let mkState b d pn h bag = {board = b; dict = d;  playerNumber = pn; hand = h; bag = bag }
 
     let board st         = st.board
     let dict st          = st.dict
     let playerNumber st  = st.playerNumber
     let hand st          = st.hand
+    let bag st = st.bag
 
 module Scrabble =
     open System.Threading
@@ -69,7 +74,7 @@ module Scrabble =
             let move = RegEx.parseMove input
 
             debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
-            send cstream (SMPlay move)
+            send cstream (SMPlay move) //plus brikker, flere mach statements 
 
             let msg = recv cstream
             debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
@@ -77,16 +82,26 @@ module Scrabble =
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
-                let st' = st // This state needs to be updated
+                
+                let movedTiles = List.fold (fun acc ls -> (fst (snd ls))::acc) [] ms
+                let handWithoutMovedTiles = subtract (ofList movedTiles) st.hand
+                let newHand = List.fold (fun acc (a, times) -> add a times acc) handWithoutMovedTiles newPieces
+                
+                let st' = State.mkState st.board st.dict st.playerNumber newHand st.bag //maybe update bag ?
+                
                 aux st'
-            | RCM (CMPlayed (pid, ms, points)) ->
+                
+            | RCM (CMPlayed (pid, ms, points)) -> // not relevant : since we do not offer multiplayer
                 (* Successful play by other player. Update your state *)
+                
                 let st' = st // This state needs to be updated
                 aux st'
-            | RCM (CMPlayFailed (pid, ms)) ->
+                
+            | RCM (CMPlayFailed (pid, ms)) -> // not relevant : since we do not offer multiplayer
                 (* Failed play. Update your state *)
                 let st' = st // This state needs to be updated
                 aux st'
+                
             | RCM (CMGameOver _) -> ()
             | RCM a -> failwith (sprintf "not implmented: %A" a)
             | RGPE err -> printfn "Gameplay Error:\n%A" err; aux st
@@ -118,5 +133,5 @@ module Scrabble =
                   
         let handSet = List.fold (fun acc (x, k) -> MultiSet.add x k acc) MultiSet.empty hand
 
-        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet)
+        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet 70u)
         
