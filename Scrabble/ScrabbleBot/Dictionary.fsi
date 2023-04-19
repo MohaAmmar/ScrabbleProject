@@ -1,4 +1,4 @@
-module Dictionary
+module SpicyScrabble.Dictionary
 
 // Trie
 type Trie
