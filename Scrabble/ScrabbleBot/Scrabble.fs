@@ -80,9 +80,13 @@ module Scrabble =
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
-                let st' = st // This state needs to be updated
+                let subtractedHand = MultiSet.subtract st.hand (MultiSet.ofList (List.map (fun (_, (x, _)) -> x) ms))
+                let newHand = MultiSet.sum subtractedHand (MultiSet.ofList (List.map fst newPieces)) //remove ms, add newPieces
+                let newBoard = st.board
+                let newBag = st.bag - uint32(List.length newPieces) //oldBag - List.size newPieces
+                let st' = State.mkState newBoard st.dict st.playerNumber newHand newBag // This state needs to be updated
                 aux st'
-            | RCM (CMPlayed (pid, ms, points)) ->
+            | RCM (CMPlayed (pid, ms, points)) ->           // Not relevant : only single-player ! OBS : unsure of wether it is safe to remove
                 (* Successful play by other player. Update your state *)
                 let st' = st // This state needs to be updated
                 aux st'
