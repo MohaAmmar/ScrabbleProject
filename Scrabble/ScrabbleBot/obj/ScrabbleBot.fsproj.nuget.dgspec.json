@@ -1,26 +1,26 @@
 {
   "format": 1,
   "restore": {
-    "/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/ScrabbleBot.fsproj": {}
+    "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/ScrabbleBot.fsproj": {}
   },
   "projects": {
-    "/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/ScrabbleBot.fsproj": {
+    "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/ScrabbleBot.fsproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/ScrabbleBot.fsproj",
+        "projectUniqueName": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/ScrabbleBot.fsproj",
         "projectName": "ScrabbleBot",
-        "projectPath": "/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/ScrabbleBot.fsproj",
-        "packagesPath": "/Users/miemilvang/.nuget/packages/",
-        "outputPath": "/Users/miemilvang/RiderProjects/ScrabbleProject/Scrabble/ScrabbleBot/obj/",
+        "projectPath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/ScrabbleBot.fsproj",
+        "packagesPath": "/Users/mohammadammar/.nuget/packages/",
+        "outputPath": "/Users/mohammadammar/Desktop/ITU/Funktionel Programmering/ScrabbleProject/Scrabble/ScrabbleBot/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "/Users/miemilvang/.nuget/NuGet/NuGet.Config"
+          "/Users/mohammadammar/.nuget/NuGet/NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net7.0"
         ],
         "sources": {
-          "/usr/local/share/dotnet/sdk/7.0.203/FSharp/library-packs": {},
+          "/usr/local/share/dotnet/sdk/7.0.100/FSharp/library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -62,7 +62,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/7.0.203/RuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/7.0.100/RuntimeIdentifierGraph.json"
         }
       }
     }

@@ -29,6 +29,17 @@ module RegEx =
                     ((x |> int, y |> int), (id |> uint32, (c |> char, p |> int)))
                 | _ -> failwith "Failed (should never happen)") |>
         Seq.toList
+    
+    let parseExchange ts =
+        let pattern = @"([0-9]+)[ ]?" 
+        Regex.Matches(ts, pattern) |>
+        Seq.cast<Match> |> 
+        Seq.map 
+            (fun t -> 
+                match t.Value with
+                | Regex pattern [id] -> (id |> uint32)
+                | _ -> failwith "Failed (should never happen)") |>
+        Seq.toList
 
  module Print =
 
@@ -48,7 +59,6 @@ module State =
         playerNumber  : uint32
         hand          : MultiSet.MultiSet<uint32>
         bag           : uint32
-        //brikker i posen
         // TODO: add player turn ? It is said in the assignment we need to know when it is our turn
     }
 
@@ -75,9 +85,25 @@ module Scrabble =
             forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
             let input =  System.Console.ReadLine()
             let move = RegEx.parseMove input
+            let exchange = RegEx.parseExchange input
 
             debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
-            send cstream (SMPlay move) //plus brikker, flere mach statements 
+            
+        
+            (*let command =        
+                if input.Split([|' '|].Head = "move"
+                then send cstream (SMPlay move)
+                else send cstream (SMChange exchange)*)
+            
+            
+            match input with
+            | input when input.StartsWith("move") -> send cstream (SMPlay move)
+            | input when input.StartsWith("exchange") -> send cstream (SMChange exchange)
+            
+            
+            
+            //send cstream (SMPlay move)
+            //TODO: handle change and move
 
             let msg = recv cstream
             debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
@@ -85,8 +111,9 @@ module Scrabble =
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
-                let movedTiles = List.fold (fun acc ls -> (fst (snd ls))::acc) [] ms
-                let handWithoutMovedTiles = subtract st.hand (ofList movedTiles) 
+
+                let movedTiles = ofList (List.fold (fun acc ls -> (fst (snd ls))::acc) [] ms)
+                let handWithoutMovedTiles = subtract st.hand movedTiles 
                 let newHand = List.fold (fun acc (a, times) -> add a times acc) handWithoutMovedTiles newPieces
                 let newBag = st.bag - uint32(List.length newPieces)
                 
@@ -94,20 +121,26 @@ module Scrabble =
                 
                 aux st'
                 
-            | RCM (CMPlayed (pid, ms, points)) -> // not relevant : since we do not offer multiplayer
-                (* Successful play by other player. Update your state *)
-                
-                let st' = st // This state needs to be updated
+            | RCM (CMChangeSuccess(newPieces)) ->
+                let movedTiles = ofList exchange
+                let handWithoutMovedTiles = subtract st.hand movedTiles 
+                let newHand = List.fold (fun acc (a, times) -> add a times acc) handWithoutMovedTiles newPieces
+                let st' = State.mkState st.board st.dict st.playerNumber newHand st.bag //hvis der er problem med at der mangler brikker så er det nok her der skal fixes noget
                 aux st'
                 
+            | RCM (CMPlayed (pid, ms, points)) -> // not relevant : since we do not offer multiplayer
+                (* Successful play by other player. Update your state *)
+                let st' = st // This state needs to be updated
+                aux st'
+               
             | RCM (CMPlayFailed (pid, ms)) -> // not relevant : since we do not offer multiplayer
                 (* Failed play. Update your state *)
                 let st' = st // This state needs to be updated
                 aux st'
-                
+
             | RCM (CMGameOver _) -> ()
             | RCM a -> failwith (sprintf "not implmented: %A" a)
-            | RGPE err -> printfn "Gameplay Error:\n%A" err; aux st
+            | RGPE err -> printfn "Gameplay Error:\n%A" err; aux st //gives error msg for all gpe and calls auc again for a new turn
 
 
         aux st
