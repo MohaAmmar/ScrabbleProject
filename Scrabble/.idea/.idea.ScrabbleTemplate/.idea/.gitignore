@@ -11,3 +11,21 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+
+/ScrabbleBot/bin/Debug/net7.0/ScrabbleBot.dll
+/ScrabbleBot/bin/Debug/net7.0/ScrabbleBot.pdb
+
+/ScrabbleBot/obj/Debug/net7.0/ScrabbleBot.assets.cache
+/ScrabbleBot/obj/Debug/net7.0/ScrabbleBot.fsproj.CoreCompileInputs.cache
+/ScrabbleBot/obj/Debug/net7.0/ScrabbleBot.pdb
+/ScrabbleBot/obj/Debug/net7.0/ref/ScrabbleBot.dll
+
+/ScrabbleBot/obj/project.assets.json
+/ScrabbleBot/obj/project.nuget.cache
+/ScrabbleBot/obj/project.packagespec.json
+/ScrabbleBot/obj/rider.project.restore.info
+
+/ScrabbleTemplate/bin/Debug/net7.0/ScrabbleBot.dll
+/ScrabbleTemplate/bin/Debug/net7.0/ScrabbleBot.pdb
+/ScrabbleTemplate/bin/Debug/net7.0/ScrabbleTemplate.dll
+

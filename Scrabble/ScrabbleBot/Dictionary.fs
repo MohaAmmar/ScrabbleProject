@@ -1,4 +1,4 @@
-module Dictionary
+module SpicyScrabble.Dictionary
 
 type Trie =
     | Leaf of bool
