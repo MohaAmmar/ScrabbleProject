@@ -120,7 +120,7 @@ module Scrabble =
                 match Dictionary.step c.[0] dict with //todo : joker is always a rn
                 | Some (false, newDict) ->
                     let newAcc = acc@[x]
-                    printfn $"Acc : {newAcc}"
+                    //printfn $"Acc : {newAcc}"
                     aux ((xs)@beenChecked) [] newDict newAcc
                 | Some (true, newDict) ->
                     let newAcc = acc@[x]
@@ -136,9 +136,9 @@ module Scrabble =
                         then []
                         else
                             let t = acc[acc.Length-1]
-                            printfn $"We remove {t} from acc"
+                            //printfn $"We remove {t} from acc"
                             let newAcc = List.removeAt (acc.Length-1) acc
-                            printfn $"newAcc : {newAcc}"
+                            //printfn $"newAcc : {newAcc}"
                             aux (unusedHand@beenChecked) [t] dict newAcc
                     else aux (xs) (x::beenChecked) dict acc
                     
@@ -158,13 +158,13 @@ module Scrabble =
     let findWordOnTile (givenChar : letter) (hand : letter list) dict : (letter list) list =
         
         let rec aux (beenChecked : letter list) (h : letter list) d prevD (acc : letter list) i (listOfWords : (letter list) list): (letter list) list =
-            printfn $"\n###########################"
-            printfn $"beenChecked: {beenChecked}"
-            printfn $"Hand        : {h}"
-            printfn $"Acc         : {acc}"
-            printfn $"index       : {i}"
-            printfn $"listOfWords : {listOfWords}"
-            printfn $"###########################"
+            //printfn $"\n###########################"
+            //printfn $"beenChecked: {beenChecked}"
+            //printfn $"Hand        : {h}"
+            //printfn $"Acc         : {acc}"
+            //printfn $"index       : {i}"
+            //printfn $"listOfWords : {listOfWords}"
+            //printfn $"###########################"
             if (i > 8 || (h.IsEmpty && beenChecked.IsEmpty ))
             then listOfWords
             else
@@ -172,14 +172,14 @@ module Scrabble =
                  then the given tile char is added to our acc and we try to test the rest of the hand on it *)
                 if ((List.length acc) = i)
                 then
-                    printfn $"Adding given char : {givenChar}"
+                    //printfn $"Adding given char : {givenChar}"
                     // with the acc step into the sub trie with the given char
                     let gc = extractCharFromLetter givenChar
                     match Dictionary.step gc.[0] d with
                     (* there is a subtrie but it is not the end of the word so we add the given char
                      to the acc and tries the rest of the hand, we keep it at the same index so that it wont add the given char again*)
                     | Some (false, nd)  ->
-                        printfn $"Some (false, nd) : {(acc@[givenChar])}"
+                        //printfn $"Some (false, nd) : {(acc@[givenChar])}"
                         aux [] (h@beenChecked) nd d (acc@[givenChar]) i listOfWords
                     (* there is a subtrie and it is the end of the word, 
                      so we add it to the list of words *)
@@ -191,7 +191,7 @@ module Scrabble =
                         aux [] (h@beenChecked) nd d fWord i newlist // TODO test
                     (* there is no subtrie, so we want to check the given char on the next position*)
                     | None              ->
-                        printfn $"Not a word : {acc} @ {givenChar}, trying given char at next index."
+                        //printfn $"Not a word : {acc} @ {givenChar}, trying given char at next index."
                         aux [] (h@beenChecked) d dict [] (i+1) listOfWords
                 else 
                     match h with
@@ -203,7 +203,7 @@ module Scrabble =
                          of the hand, we keep it at the same index since we doesn't
                          want to affect it's placement in the word here*)
                         | Some (false, nd)  ->
-                            printfn $"Some (false, nd) : {(acc@[x])}"
+                            //printfn $"Some (false, nd) : {(acc@[x])}"
                             aux [] (xs@beenChecked) nd d (acc@[x]) i listOfWords
                             
                         | Some (true, nd)   ->
@@ -215,70 +215,83 @@ module Scrabble =
                                 aux beenChecked xs nd d fWord i newlist
                             else
                                 let fWord = acc@[x]
-                                printfn $"FOUND WORD : {fWord}, but does not contain given letter"
+                                //printfn $"FOUND WORD : {fWord}, but does not contain given letter"
                                 aux [] (xs@beenChecked) nd d fWord i listOfWords
                         | None              ->
                             if xs.IsEmpty
                             then
                                 if (List.length acc < 1)
                                 then
-                                    printfn $"No word can be put with given char {givenChar} at index {i}. Index has been incremented."
+                                    //printfn $"No word can be put with given char {givenChar} at index {i}. Index has been incremented."
                                     aux [] (h@beenChecked@acc) dict dict [] (i+1) listOfWords
                                 else
                                     let t = acc[acc.Length-1]
                                     if (((List.length acc)-1) > i)
                                     then 
-                                        printfn $"We remove {t} from acc"
+                                        //printfn $"We remove {t} from acc"
                                         let newAcc = List.removeAt (acc.Length-1) acc
-                                        printfn $"newAcc : {newAcc}"
+                                        //printfn $"newAcc : {newAcc}"
                                         aux (t::beenChecked) h prevD prevD newAcc i listOfWords
                                     else
-                                        printfn $"No word can be put with given char {givenChar} at index {i}. Index has been incremented."
+                                        //printfn $"No word can be put with given char {givenChar} at index {i}. Index has been incremented."
                                         aux [] (h@beenChecked@acc) dict dict [] (i+1) listOfWords
                             else
-                                printfn $"Found None : {x} has been added to checked letters."
+                                //printfn $"Found None : {x} has been added to checked letters."
                                 aux (x::beenChecked) xs d prevD acc i listOfWords
                     | []        -> listOfWords
         aux [] hand dict dict [] 0 []
         
     let findCoordsForWord (w : letter list) (horizontal : bool) (gcCoords : coord) (givenChar : letter) (st : State.state) : StateMonad.Result<'a, word> =
-        printfn $"Finding coordinates for word : {w}"
+        printfn $"\nFinding coordinates for word : {w}"
         let gcX, gcY = gcCoords
-        
+        printfn $"gcX, gcY : {gcX}, {gcY}"
         
         let givenCharChar = fst (Set.minElement (snd givenChar))
         let position = List.findIndex (fun x -> givenCharChar = fst (Set.minElement (snd x)) ) w
+        printfn $"Given Char {givenCharChar} is at position {position} on coordinates ({gcX}, {gcY})"
         
-        let wordListBeforeGC    = w[0..position]
+        let wordListBeforeGC    = w[0..position-1]
         let wordListAfterGC     = w[position+1..]
         
         match horizontal with
-        | true ->            
-            let wordListBeforeGC_Coordinates = List.mapi (fun i e ->(((gcX-i), gcY), e)) (List.rev wordListBeforeGC)
-            let wordListAfterGC_Coordinates = List.mapi (fun i e ->(((gcX+i), gcY), e)) wordListAfterGC
-            
+        | true ->
+            printfn $"Trying horizontal:"
+            let wordListBeforeGC_Coordinates = List.mapi (fun i e ->(((gcX-i), gcY), e)) (wordListBeforeGC)
+            let wordListAfterGC_Coordinates = List.mapi (fun i e ->(((gcX+i+1), gcY), e)) wordListAfterGC
+            printfn $"List before given coordinate {wordListBeforeGC_Coordinates} and after {wordListAfterGC_Coordinates}"
+
             let wl = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
             
             let b = List.fold (fun acc e ->
                 match acc with
-                | Some v -> acc
+                | Some v ->
+                    printfn $"The tile before {e} is reserved by another tile."
+                    acc
                 | None -> (checkReservedCoordPlacement (fst e) st.boardTiles)) None wl
             match b with
-            | None -> StateMonad.Success wl
+            | None ->
+                printfn $"The word {wl} can be placed on board."
+                StateMonad.Success wl
             | _     -> StateMonad.Failure wl
             
         | false ->
+            printfn $"Trying vertical:"
             let wordListBeforeGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY-i)), e)) (List.rev wordListBeforeGC)
-            let wordListAfterGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY+i)), e)) wordListAfterGC
+            let wordListAfterGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY+i+1)), e)) wordListAfterGC
+            printfn $"List before given coordinate {wordListBeforeGC_Coordinates} and after {wordListAfterGC_Coordinates}"
             
             let wl = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
             
             let b = List.fold (fun acc e ->
                 match acc with
-                | Some v -> acc
+                | Some v ->
+                    printfn $"The tile before {e} is reserved by another tile."
+                    acc
                 | None -> (checkReservedCoordPlacement (fst e) st.boardTiles)) None wl
             match b with
-            | None -> StateMonad.Success wl
+            | None ->
+                printfn $"The word {wl} can be placed on board."
+                StateMonad.Success wl
             | _     -> StateMonad.Failure wl
     
     let findCoordsForFirstWord (w : letter list) (st : State.state) : StateMonad.Result<'a, word> =
@@ -294,7 +307,7 @@ module Scrabble =
             | _     -> StateMonad.Failure wl
     
     let findMove (hand : letter list ) (st : State.state) : word =
-        printfn $"From pieces to hand : hand {hand}"
+        //printfn $"From pieces to hand : hand {hand}"
         
         match Map.isEmpty st.boardTiles with
         | true  ->
@@ -310,13 +323,13 @@ module Scrabble =
              let rec aux (ws : letter list list) (gcCoords : coord) (givenChar : letter) =
                  match ws with
                  | x::xs    ->
-                     printfn $"findMove : Board is not empty"
-                     match (findCoordsForWord x true gcCoords givenChar st) with
+                     printfn $"findMove : Board is NOT empty"
+                     match (findCoordsForWord x false gcCoords givenChar st) with
                      | StateMonad.Success v    ->
                          printfn $"findMove: not empty board : returning word {v}"
                          v
                      | StateMonad.Failure _     ->
-                         match (findCoordsForWord x false gcCoords givenChar st) with
+                         match (findCoordsForWord x true gcCoords givenChar st) with
                          | StateMonad.Success v    -> v
                          | StateMonad.Failure _     -> aux xs gcCoords givenChar
                  | []       -> []
@@ -358,7 +371,7 @@ module Scrabble =
             
         
             let changeTiles =
-                printfn $"couldn't find a word, exchanging tiles"
+                printfn $"Changing tiles"
                 let hand = toList st.hand
                 if st.bag > 2u
                 then hand[0..2] 
