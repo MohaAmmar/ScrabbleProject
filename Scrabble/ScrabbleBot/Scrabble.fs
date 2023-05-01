@@ -129,6 +129,7 @@ module Scrabble =
         aux hand [] dicti []
     
     let rec findFirstWord (hand : letter list) dicti st : letter list =
+        //TODO : no infitie loop ty
         let res = tryFirstWord hand dicti st
         match res with
         | [] -> findFirstWord (hand.Tail@[hand.Head]) dicti st
