@@ -118,9 +118,12 @@ module Scrabble =
                 match Dictionary.step c.[0] dict with //todo : joker is always a rn
                 | Some (false, newDict) ->
                     aux (xs@beenChecked) [] newDict (acc@[x])                                          
-                | Some (true, _) ->
-                    printfn $"FOUND WORD: returning : {acc}"
-                    acc
+                | Some (true, newDict) ->
+                    if ((List.length acc % 2) = 1)
+                    then
+                        printfn $"FOUND WORD: returning : {acc}"
+                        acc
+                    else aux (xs@beenChecked) [] newDict (acc@[x])    
                 | None ->
                     if xs.IsEmpty
                     then [] // steps to a new first char    
@@ -263,53 +266,39 @@ module Scrabble =
             
             debugPrint (sprintf "charsOnHand : %A \n" (charsOnHand pieces st))
             let newHand = idToTile pieces st.hand
-            printfn "findMove : %A \n" (findMove newHand st)
             
 
             // remove the force print when you move on from manual input (or when you have learnt the format)
             forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
-            let input =  System.Console.ReadLine()
-            let move = RegEx.parseMove input
-            let exchange = RegEx.parseExchange input
+            
+            //let input =  System.Console.ReadLine()
+            //let move = RegEx.parseMove input
+            //let exchange = RegEx.parseExchange input
 
-            debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
+            //debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
             
         
             let changeTiles =
                 printfn $"couldn't find a word, exchanging tiles"
                 let hand = toList st.hand
                 if st.bag > 2u
-                then hand[0..2] //RegEx.parseExchange (hand[0].ToString() + hand[1].ToString() + hand[2].ToString() + " ")
-                else hand[0..0] //RegEx.parseExchange (hand[0].ToString())
-            (*let command =        
-                if input.Split([|' '|].Head = "move"
-                then send cstream (SMPlay move)
-                else send cstream (SMChange exchange)*)
+                then hand[0..2] 
+                else hand[0..0] 
             
-            
-            (*match input with
-            | input when input.StartsWith("move") -> send cstream (SMPlay move)
-            | input when input.StartsWith("exchange") -> send cstream (SMChange exchange)*)
             let makeMovePlayable (w : word) =
                 let newTile s : (char * int) = (Set.toList (snd s)).Head
                     
                 List.map (fun e -> (fst e, (fst (snd e),(newTile (snd e))) )) w
             
-            
-            
             let foundWord = findMove newHand st
+            
             match foundWord with
             | x::xs ->
                 send cstream (SMPlay (makeMovePlayable foundWord))
             | [] -> send cstream (SMChange changeTiles)
-            
-            
-            
-            //send cstream (SMPlay move)
-            //TODO: handle change and move
 
             let msg = recv cstream
-            debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
+            //debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
@@ -325,7 +314,7 @@ module Scrabble =
                 aux st'
                 
             | RCM (CMChangeSuccess(newPieces)) ->
-                let movedTiles = ofList exchange
+                let movedTiles = ofList changeTiles
                 let handWithoutMovedTiles = subtract st.hand movedTiles 
                 let newHand = List.fold (fun acc (a, times) -> add a times acc) handWithoutMovedTiles newPieces
                 let st' = State.mkState st.board st.dict st.playerNumber newHand st.bag //hvis der er problem med at der mangler brikker så er det nok her der skal fixes noget
