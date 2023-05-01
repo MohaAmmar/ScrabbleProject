@@ -124,7 +124,7 @@ module Scrabble =
                     aux ((xs)@beenChecked) [] newDict newAcc
                 | Some (true, newDict) ->
                     let newAcc = acc@[x]
-                    if ((List.length newAcc % 2) = 1)
+                    if (((List.length newAcc % 2) = 1) && (List.length newAcc > 1) )
                     then
                         printfn $"FOUND WORD: returning : {newAcc}"
                         newAcc
@@ -157,67 +157,95 @@ module Scrabble =
     
     let findWordOnTile (givenChar : letter) (hand : letter list) dict : (letter list) list =
         
-        let rec aux (beenChecked : letter list) (h : letter list) d (acc : letter list) i (listOfWords : (letter list) list): (letter list) list =
-            printfn $"beenChecked : {beenChecked}"
-            printfn $"Hand : {h}"
-            printfn $"Acc : {acc}"
-            printfn $"index : {i}"
-             (*if the size of the list hits the index of where we should try to put the tile
-             then the given tile char is added to our acc and we try to test the rest of the hand on it *)
-            if ((List.length acc) = i)
-            then
-                printfn $"Adding given char : {givenChar}"
-                // with the acc step into the sub trie with the given char
-                let gc = extractCharFromLetter givenChar
-                match Dictionary.step gc.[0] d with
-                (* there is a subtrie but it is not the end of the word so we add the given char
-                 to the acc and tries the rest of the hand, we keep it at the same index so that it wont add the given char again*)
-                | Some (false, nd)  ->
-                    printfn $"Some (false, nd) : {(acc@[givenChar])}"
-                    aux [] h nd (acc@[givenChar]) i listOfWords
-                (* there is a subtrie and it is the end of the word, 
-                 so we add it to the list of words *)
-                | Some (true, nd)   ->
-                    printfn $"FOUND WORD : {(acc@[givenChar])}"
-                    let newlist = (acc@[givenChar])::listOfWords
-                    aux [] (h@beenChecked) nd [] i newlist // TODO test
-                (* there is no subtrie, so we want to check the given char on the next position*)
-                | None              ->
-                    printfn $"Not a word : {acc} @ {givenChar}, trying given char at next index."
-                    aux [] h d [] (i+1) listOfWords
-            else 
-                match hand with
-                | x::xs     ->
-                    let c = extractCharFromLetter x
-                    match Dictionary.step c.[0] d with
-                    (* there is a subtrie but it is not the end of the word
-                     so we add the given char to the acc and tries the rest
-                     of the hand, we keep it at the same index since we doesn't
-                     want to affect it's placement in the word here*)
+        let rec aux (beenChecked : letter list) (h : letter list) d prevD (acc : letter list) i (listOfWords : (letter list) list): (letter list) list =
+            printfn $"\n###########################"
+            printfn $"beenChecked: {beenChecked}"
+            printfn $"Hand        : {h}"
+            printfn $"Acc         : {acc}"
+            printfn $"index       : {i}"
+            printfn $"listOfWords : {listOfWords}"
+            printfn $"###########################"
+            if (i > 8 || (h.IsEmpty && beenChecked.IsEmpty ))
+            then listOfWords
+            else
+                 (*if the size of the list hits the index of where we should try to put the tile
+                 then the given tile char is added to our acc and we try to test the rest of the hand on it *)
+                if ((List.length acc) = i)
+                then
+                    printfn $"Adding given char : {givenChar}"
+                    // with the acc step into the sub trie with the given char
+                    let gc = extractCharFromLetter givenChar
+                    match Dictionary.step gc.[0] d with
+                    (* there is a subtrie but it is not the end of the word so we add the given char
+                     to the acc and tries the rest of the hand, we keep it at the same index so that it wont add the given char again*)
                     | Some (false, nd)  ->
-                        printfn $"Some (false, nd) : {(acc@[x])}"
-                        aux [] (xs@beenChecked) nd (acc@[x]) i listOfWords
-                        
+                        printfn $"Some (false, nd) : {(acc@[givenChar])}"
+                        aux [] (h@beenChecked) nd d (acc@[givenChar]) i listOfWords
+                    (* there is a subtrie and it is the end of the word, 
+                     so we add it to the list of words *)
                     | Some (true, nd)   ->
-                        if ((List.length acc)  > i)
-                        then
-                            printfn $"FOUND WORD : {acc}"
-                            let newlist = (acc@[x])::listOfWords
-                            aux [] (xs@beenChecked) nd [] i newlist
-                        else
-                            printfn $"FOUND WORD : {acc}, but does not contain given letter"
-                            aux [] (xs@beenChecked) nd (acc@[x]) i listOfWords
+                        let fWord = acc@[givenChar]
+                        printfn $"FOUND WORD : {fWord}"
+                        let newlist = fWord::listOfWords
+                        
+                        aux [] (h@beenChecked) nd d fWord i newlist // TODO test
+                    (* there is no subtrie, so we want to check the given char on the next position*)
                     | None              ->
-                        if xs.IsEmpty 
-                        then listOfWords
-                        else
-                            printfn $"Found None : {x} has been added to checked letters."
-                            aux (x::beenChecked) xs d acc i listOfWords
-                | []        -> listOfWords
-        aux [] hand dict [] 0 []
+                        printfn $"Not a word : {acc} @ {givenChar}, trying given char at next index."
+                        aux [] (h@beenChecked) d dict [] (i+1) listOfWords
+                else 
+                    match h with
+                    | x::xs     ->
+                        let c = extractCharFromLetter x
+                        match Dictionary.step c.[0] d with
+                        (* there is a subtrie but it is not the end of the word
+                         so we add the given char to the acc and tries the rest
+                         of the hand, we keep it at the same index since we doesn't
+                         want to affect it's placement in the word here*)
+                        | Some (false, nd)  ->
+                            printfn $"Some (false, nd) : {(acc@[x])}"
+                            aux [] (xs@beenChecked) nd d (acc@[x]) i listOfWords
+                            
+                        | Some (true, nd)   ->
+                            if ((List.length acc) > i)
+                            then
+                                let fWord = acc@[x]
+                                printfn $"FOUND WORD : {fWord}"
+                                let newlist = fWord::listOfWords
+                                aux beenChecked xs nd d fWord i newlist
+                            else
+                                let fWord = acc@[x]
+                                printfn $"FOUND WORD : {fWord}, but does not contain given letter"
+                                aux [] (xs@beenChecked) nd d fWord i listOfWords
+                        | None              ->
+                            if xs.IsEmpty
+                            then
+                                if (List.length acc < 1)
+                                then
+                                    printfn $"No word can be put with given char {givenChar} at index {i}. Index has been incremented."
+                                    aux [] (h@beenChecked@acc) dict dict [] (i+1) listOfWords
+                                else
+                                    let t = acc[acc.Length-1]
+                                    if (((List.length acc)-1) > i)
+                                    then 
+                                        printfn $"We remove {t} from acc"
+                                        let newAcc = List.removeAt (acc.Length-1) acc
+                                        printfn $"newAcc : {newAcc}"
+                                        aux (t::beenChecked) h prevD prevD newAcc i listOfWords
+                                    else
+                                        printfn $"No word can be put with given char {givenChar} at index {i}. Index has been incremented."
+                                        aux [] (h@beenChecked@acc) dict dict [] (i+1) listOfWords
+                            else
+                                printfn $"Found None : {x} has been added to checked letters."
+                                aux (x::beenChecked) xs d prevD acc i listOfWords
+                    | []        -> listOfWords
+        aux [] hand dict dict [] 0 []
         
     let findCoordsForWord (w : letter list) (horizontal : bool) (gcCoords : coord) (givenChar : letter) (st : State.state) : StateMonad.Result<'a, word> =
+        printfn $"Finding coordinates for word : {w}"
         let gcX, gcY = gcCoords
+        
+        
         let givenCharChar = fst (Set.minElement (snd givenChar))
         let position = List.findIndex (fun x -> givenCharChar = fst (Set.minElement (snd x)) ) w
         
