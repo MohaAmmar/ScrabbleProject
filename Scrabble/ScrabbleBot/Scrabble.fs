@@ -129,11 +129,14 @@ module Scrabble =
         aux hand [] dicti []
     
     let rec findFirstWord (hand : letter list) dicti st : letter list =
-        //TODO : no infitie loop ty
-        let res = tryFirstWord hand dicti st
-        match res with
-        | [] -> findFirstWord (hand.Tail@[hand.Head]) dicti st
-        | _ -> res
+        let rec aux i hand dicti st=
+            let res = tryFirstWord hand dicti st
+            match res with
+            | [] -> if i < List.length hand 
+                    then aux (i+1) (hand.Tail@[hand.Head]) dicti st
+                    else []
+            | _ -> res
+        aux 1 hand dicti st
     
     let findWordOnTile (givenChar : letter) (hand : letter list) dict : (letter list) list =
         
@@ -229,7 +232,7 @@ module Scrabble =
              | StateMonad.Success v ->
                  printfn $"findMove: empty board : returning word {v}"
                  v
-             | StateMonad.Failure _ -> failwith "Here we want to exchange"
+             | StateMonad.Failure _ -> []
         | false ->
              let givenChar = (1u, (Set.add ('A',1) Set.empty))
              let words = findWordOnTile givenChar hand st.dict
@@ -247,7 +250,7 @@ module Scrabble =
                          match (findCoordsForWord x false (0,1) st) with
                          | StateMonad.Success v    -> v
                          | StateMonad.Failure _     -> aux xs
-                 | []       -> failwith "Here we want to exchange \n"
+                 | []       -> []
              aux words
     
     let idToTile (pieces:Map<uint32,tile>) (hand : MultiSet<uint32>) : letter list =
@@ -272,15 +275,33 @@ module Scrabble =
             debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
             
         
+            let changeTiles =
+                printfn $"couldn't find a word, exchanging tiles"
+                let hand = toList st.hand
+                if st.bag > 2u
+                then hand[0..2] //RegEx.parseExchange (hand[0].ToString() + hand[1].ToString() + hand[2].ToString() + " ")
+                else hand[0..0] //RegEx.parseExchange (hand[0].ToString())
             (*let command =        
                 if input.Split([|' '|].Head = "move"
                 then send cstream (SMPlay move)
                 else send cstream (SMChange exchange)*)
             
             
-            match input with
+            (*match input with
             | input when input.StartsWith("move") -> send cstream (SMPlay move)
-            | input when input.StartsWith("exchange") -> send cstream (SMChange exchange)
+            | input when input.StartsWith("exchange") -> send cstream (SMChange exchange)*)
+            let makeMovePlayable (w : word) =
+                let newTile s : (char * int) = (Set.toList (snd s)).Head
+                    
+                List.map (fun e -> (fst e, (fst (snd e),(newTile (snd e))) )) w
+            
+            
+            
+            let foundWord = findMove newHand st
+            match foundWord with
+            | x::xs ->
+                send cstream (SMPlay (makeMovePlayable foundWord))
+            | [] -> send cstream (SMChange changeTiles)
             
             
             
