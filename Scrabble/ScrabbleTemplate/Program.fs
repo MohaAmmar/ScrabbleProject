@@ -49,8 +49,8 @@ let main argv =
 
     let dictAPI =
         // Uncomment if you have implemented a dictionary. last element None if you have not implemented a GADDAG
-        Some (SpicyScrabble.Dictionary.empty, SpicyScrabble.Dictionary.insert, SpicyScrabble.Dictionary.step, None)
-        //None
+        //Some (SpicyScrabble.Dictionary.empty, SpicyScrabble.Dictionary.insert, SpicyScrabble.Dictionary.step, None)
+        None
         
 
     let (dictionary, time) =

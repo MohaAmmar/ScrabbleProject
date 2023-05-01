@@ -63,13 +63,15 @@ module State =
         // TODO: add player turn ? It is said in the assignment we need to know when it is our turn
     }
 
-    let mkState b d pn h bag = {board = b; dict = d;  playerNumber = pn; hand = h; bag = bag ; boardTiles = Map.empty }
+    let mkState b d pn h bag bt = {board = b; dict = d;  playerNumber = pn; hand = h; bag = bag ; boardTiles = bt }
 
     let board st         = st.board
     let dict st          = st.dict
     let playerNumber st  = st.playerNumber
     let hand st          = st.hand
     let bag st = st.bag
+    
+    let boardTile st = st.boardTiles
 
 module Scrabble =
     open System.Threading
@@ -109,25 +111,37 @@ module Scrabble =
     let tryFirstWord (hand : letter list) dicti st : letter list =
         //Only finds all the words starting with the letter hand.[0]
         let rec aux (unusedHand : letter list) (beenChecked : letter list) dict (acc : letter list) =
-            printfn $"beenChecked : {beenChecked}"
-            printfn $"Hand : {unusedHand}"
-            printfn $"Acc : {acc}"
+            //printfn $"beenChecked : {beenChecked}"
+            //printfn $"Hand : {unusedHand}"
+            //printfn $"Acc : {acc}"
             match unusedHand with
             | x::xs ->
                 let c = extractCharFromLetter x
                 match Dictionary.step c.[0] dict with //todo : joker is always a rn
                 | Some (false, newDict) ->
-                    aux (xs@beenChecked) [] newDict (acc@[x])                                          
+                    let newAcc = acc@[x]
+                    printfn $"Acc : {newAcc}"
+                    aux ((xs)@beenChecked) [] newDict newAcc
                 | Some (true, newDict) ->
-                    if ((List.length acc % 2) = 1)
+                    let newAcc = acc@[x]
+                    if ((List.length newAcc % 2) = 1)
                     then
-                        printfn $"FOUND WORD: returning : {acc}"
-                        acc
-                    else aux (xs@beenChecked) [] newDict (acc@[x])    
+                        printfn $"FOUND WORD: returning : {newAcc}"
+                        newAcc
+                    else aux ((xs)@beenChecked) [] newDict (newAcc)    
                 | None ->
                     if xs.IsEmpty
-                    then [] // steps to a new first char    
-                    else aux xs (x::beenChecked) dict acc
+                    then
+                        if (acc.IsEmpty)
+                        then []
+                        else
+                            let t = acc[acc.Length-1]
+                            printfn $"We remove {t} from acc"
+                            let newAcc = List.removeAt (acc.Length-1) acc
+                            printfn $"newAcc : {newAcc}"
+                            aux (unusedHand@beenChecked) [t] dict newAcc
+                    else aux (xs) (x::beenChecked) dict acc
+                    
             | [] -> []
         aux hand [] dicti []
     
@@ -202,11 +216,21 @@ module Scrabble =
                 | []        -> listOfWords
         aux [] hand dict [] 0 []
         
-    let findCoordsForWord (w : letter list) (horizontal : bool) (startCoord : coord) (st : State.state) : StateMonad.Result<'a, word> =
-        let x, y = startCoord
+    let findCoordsForWord (w : letter list) (horizontal : bool) (gcCoords : coord) (givenChar : letter) (st : State.state) : StateMonad.Result<'a, word> =
+        let gcX, gcY = gcCoords
+        let givenCharChar = fst (Set.minElement (snd givenChar))
+        let position = List.findIndex (fun x -> givenCharChar = fst (Set.minElement (snd x)) ) w
+        
+        let wordListBeforeGC    = w[0..position]
+        let wordListAfterGC     = w[position+1..]
+        
         match horizontal with
-        | true ->
-            let wl = List.mapi (fun i e ->(((x+i), y), e)) w
+        | true ->            
+            let wordListBeforeGC_Coordinates = List.mapi (fun i e ->(((gcX-i), gcY), e)) (List.rev wordListBeforeGC)
+            let wordListAfterGC_Coordinates = List.mapi (fun i e ->(((gcX+i), gcY), e)) wordListAfterGC
+            
+            let wl = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
+            
             let b = List.fold (fun acc e ->
                 match acc with
                 | Some v -> acc
@@ -216,12 +240,28 @@ module Scrabble =
             | _     -> StateMonad.Failure wl
             
         | false ->
-            let wl = List.mapi (fun i e ->((x, (y+i)), e)) w
+            let wordListBeforeGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY-i)), e)) (List.rev wordListBeforeGC)
+            let wordListAfterGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY+i)), e)) wordListAfterGC
+            
+            let wl = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
+            
             let b = List.fold (fun acc e ->
                 match acc with
                 | Some v -> acc
                 | None -> (checkReservedCoordPlacement (fst e) st.boardTiles)) None wl
             match b with
+            | None -> StateMonad.Success wl
+            | _     -> StateMonad.Failure wl
+    
+    let findCoordsForFirstWord (w : letter list) (st : State.state) : StateMonad.Result<'a, word> =
+        let x, y = st.board.center
+        let wl = List.mapi (fun i e ->(x+i, y), e) w
+        let b =
+            List.fold (fun acc e ->
+                match acc with
+                | Some v -> acc
+                | None -> (checkReservedCoordPlacement (fst e) st.boardTiles)) None wl
+        match b with
             | None -> StateMonad.Success wl
             | _     -> StateMonad.Failure wl
     
@@ -231,31 +271,42 @@ module Scrabble =
         match Map.isEmpty st.boardTiles with
         | true  ->
              printfn $"findMove : Board is empty"
-             match (findCoordsForWord (findFirstWord hand st.dict st) true st.board.center st) with
+             match (findCoordsForFirstWord (findFirstWord hand st.dict st) st) with
              | StateMonad.Success v ->
                  printfn $"findMove: empty board : returning word {v}"
                  v
              | StateMonad.Failure _ -> []
         | false ->
-             let givenChar = (1u, (Set.add ('A',1) Set.empty))
-             let words = findWordOnTile givenChar hand st.dict
+             let givenChars = Map.toList st.boardTiles
              
-             let rec aux (ws : letter list list) =
+             let rec aux (ws : letter list list) (gcCoords : coord) (givenChar : letter) =
                  match ws with
                  | x::xs    ->
                      printfn $"findMove : Board is not empty"
-                     //Todo: fold over st.boardTiles for trying each laid char and coordinate -> (int) fst (Map.find givenChar st.boardTiles)
-                     match (findCoordsForWord x true (0,1) st) with
+                     match (findCoordsForWord x true gcCoords givenChar st) with
                      | StateMonad.Success v    ->
                          printfn $"findMove: not empty board : returning word {v}"
                          v
                      | StateMonad.Failure _     ->
-                         match (findCoordsForWord x false (0,1) st) with
+                         match (findCoordsForWord x false gcCoords givenChar st) with
                          | StateMonad.Success v    -> v
-                         | StateMonad.Failure _     -> aux xs
+                         | StateMonad.Failure _     -> aux xs gcCoords givenChar
                  | []       -> []
-             aux words
-    
+             
+             let rec miniAux (givenChars : (coord * char) list ) =
+                 if (givenChars.IsEmpty)
+                 then []
+                 else 
+                     let fakeTile : tile = Set.add ((snd givenChars.Head), 0) Set.empty
+                     let fakeLetter : letter = (0u, fakeTile)
+                     
+                     let words = findWordOnTile fakeLetter hand st.dict
+                     
+                     match words with
+                     | x::xs -> aux words (fst givenChars.Head) fakeLetter
+                     | []   -> miniAux givenChars.Tail
+             miniAux givenChars
+
     let idToTile (pieces:Map<uint32,tile>) (hand : MultiSet<uint32>) : letter list =
         MultiSet.fold (fun (acc: letter list) (i : uint32) _ -> (i, (Map.find i pieces))::acc) [] hand
 
@@ -287,7 +338,6 @@ module Scrabble =
             
             let makeMovePlayable (w : word) =
                 let newTile s : (char * int) = (Set.toList (snd s)).Head
-                    
                 List.map (fun e -> (fst e, (fst (snd e),(newTile (snd e))) )) w
             
             let foundWord = findMove newHand st
@@ -303,13 +353,21 @@ module Scrabble =
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
+                let movedTileOnBoard (m : (coord * (uint32 * (char * int))) list) : Map<coord, char> =
+                    List.fold (fun acc e -> Map.add (fst e) (fst (snd (snd e))) acc ) Map.empty m
+                
 
                 let movedTiles = ofList (List.fold (fun acc ls -> (fst (snd ls))::acc) [] ms)
                 let handWithoutMovedTiles = subtract st.hand movedTiles 
                 let newHand = List.fold (fun acc (a, times) -> add a times acc) handWithoutMovedTiles newPieces
                 let newBag = st.bag - uint32(List.length newPieces)
                 
-                let st' = State.mkState st.board st.dict st.playerNumber newHand newBag
+                
+                let newBT = Map.fold (fun _ k v -> Map.add k v st.boardTiles ) Map.empty (movedTileOnBoard ms)
+                     
+                
+                let st' = State.mkState st.board st.dict st.playerNumber newHand newBag newBT
+                
                 
                 aux st'
                 
@@ -317,7 +375,7 @@ module Scrabble =
                 let movedTiles = ofList changeTiles
                 let handWithoutMovedTiles = subtract st.hand movedTiles 
                 let newHand = List.fold (fun acc (a, times) -> add a times acc) handWithoutMovedTiles newPieces
-                let st' = State.mkState st.board st.dict st.playerNumber newHand st.bag //hvis der er problem med at der mangler brikker så er det nok her der skal fixes noget
+                let st' = State.mkState st.board st.dict st.playerNumber newHand st.bag  st.boardTiles//hvis der er problem med at der mangler brikker så er det nok her der skal fixes noget
                 aux st'
                 
             | RCM (CMPlayed (pid, ms, points)) -> // not relevant : since we do not offer multiplayer
@@ -361,5 +419,5 @@ module Scrabble =
                   
         let handSet = List.fold (fun acc (x, k) -> MultiSet.add x k acc) MultiSet.empty hand
 
-        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet 70u)
+        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet 70u Map.empty)
         
