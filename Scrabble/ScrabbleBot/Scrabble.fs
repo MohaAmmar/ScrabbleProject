@@ -423,7 +423,7 @@ module Scrabble =
                 printfn $"New Board Tiles {newBT}"    
                 
                 let st' = State.mkState st.board st.dict st.playerNumber newHand newBag newBT
-                
+                 
                 
                 aux st'
                 
