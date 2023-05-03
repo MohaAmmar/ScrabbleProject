@@ -1,5 +1,6 @@
 ﻿namespace SpicyScrabble
 
+open System.Collections.Generic
 open System.Xml.Xsl
 open ScrabbleUtil
 open ScrabbleUtil.ServerCommunication
@@ -256,8 +257,8 @@ module Scrabble =
         match horizontal with
         | true ->
             printfn $"Trying horizontal:"
-            let wordListBeforeGC_Coordinates = List.mapi (fun i e ->(((gcX-i), gcY), e)) (wordListBeforeGC)
-            let wordListAfterGC_Coordinates = List.mapi (fun i e ->(((gcX+i+1), gcY), e)) wordListAfterGC
+            let wordListBeforeGC_Coordinates = List.mapi (fun i e ->(((gcX-i-1), gcY), e)) (wordListBeforeGC)
+            let wordListAfterGC_Coordinates = List.mapi (fun i e ->(((gcX+i+1), gcY), e)) wordListAfterGC  //might add +i
             printfn $"List before given coordinate {wordListBeforeGC_Coordinates} and after {wordListAfterGC_Coordinates}"
 
             let wl = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
@@ -276,8 +277,8 @@ module Scrabble =
             
         | false ->
             printfn $"Trying vertical:"
-            let wordListBeforeGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY-i)), e)) (List.rev wordListBeforeGC)
-            let wordListAfterGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY+i+1)), e)) wordListAfterGC
+            let wordListBeforeGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY-i-1)), e)) (List.rev wordListBeforeGC)
+            let wordListAfterGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY+i+1)), e)) wordListAfterGC //might add +i
             printfn $"List before given coordinate {wordListBeforeGC_Coordinates} and after {wordListAfterGC_Coordinates}"
             
             let wl = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
@@ -318,12 +319,24 @@ module Scrabble =
                  v
              | StateMonad.Failure _ -> []
         | false ->
-             let givenChars = Map.toList st.boardTiles
+             let givenChars = List.rev <| Map.toList st.boardTiles
              
              let rec aux (ws : letter list list) (gcCoords : coord) (givenChar : letter) =
+                 printfn $"Given char in aux {givenChar}"
                  match ws with
                  | x::xs    ->
                      printfn $"findMove : Board is NOT empty"
+                     (*let justDoneVertical = false
+                     if justDoneVertical
+                     then
+                         match (findCoordsForWord x true gcCoords givenChar st) with
+                         | StateMonad.Success v    -> v
+                         | StateMonad.Failure _     -> aux xs gcCoords givenChar
+                     else
+                         match (findCoordsForWord x false gcCoords givenChar st) with
+                         | StateMonad.Success v    -> v
+                         | StateMonad.Failure _     -> aux xs gcCoords givenChar*)
+                         
                      match (findCoordsForWord x false gcCoords givenChar st) with
                      | StateMonad.Success v    ->
                          printfn $"findMove: not empty board : returning word {v}"
@@ -343,9 +356,10 @@ module Scrabble =
                      
                      let words = findWordOnTile fakeLetter hand st.dict
                      
-                     match words with
-                     | x::xs -> aux words (fst givenChars.Head) fakeLetter
-                     | []   -> miniAux givenChars.Tail
+                     if words.IsEmpty
+                     then miniAux (List.rev givenChars.Tail)
+                     else aux words (fst givenChars.Head) fakeLetter
+                     
              miniAux givenChars
 
     let idToTile (pieces:Map<uint32,tile>) (hand : MultiSet<uint32>) : letter list =
@@ -381,6 +395,7 @@ module Scrabble =
                 let newTile s : (char * int) = (Set.toList (snd s)).Head
                 List.map (fun e -> (fst e, (fst (snd e),(newTile (snd e))) )) w
             
+            //It all starts here :)
             let foundWord = findMove newHand st
             
             match foundWord with
@@ -405,7 +420,7 @@ module Scrabble =
                 
                 
                 let newBT = Map.fold (fun _ k v -> Map.add k v st.boardTiles ) Map.empty (movedTileOnBoard ms)
-                     
+                printfn $"New Board Tiles {newBT}"    
                 
                 let st' = State.mkState st.board st.dict st.playerNumber newHand newBag newBT
                 
