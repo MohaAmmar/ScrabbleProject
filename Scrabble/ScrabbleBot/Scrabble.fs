@@ -245,7 +245,7 @@ module Scrabble =
                                 aux (x::beenChecked) xs d prevD acc i listOfWords
                     | []        -> listOfWords
         aux [] hand dict dict [] 0 []
-        
+         
     let findCoordsForWord (w : letter list)  (gcCoords : coord) (givenChar : letter) (st : State.state) : StateMonad.Result<'a, word> =
         printfn $"\nFinding coordinates for word : {w}"
         let gcX, gcY = gcCoords
