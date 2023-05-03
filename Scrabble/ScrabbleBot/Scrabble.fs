@@ -54,19 +54,17 @@ module State =
     // Currently, it only keeps track of your hand, your player numer, your board, and your dictionary,
     // but it could, potentially, keep track of other useful
     // information, such as number of players, player turn, etc.
-
     type state = {
         board         : Parser.board
         dict          : ScrabbleUtil.Dictionary.Dict
         playerNumber  : uint32
         hand          : MultiSet.MultiSet<uint32>
         bag           : uint32
-        boardTiles    : Map<coord, char>
-        myTurn          : Boolean
+        boardTiles    : Map<coord, char> //might add id
         // TODO: add player turn ? It is said in the assignment we need to know when it is our turn
     }
 
-    let mkState b d pn h bag bt mt = {board = b; dict = d;  playerNumber = pn; hand = h; bag = bag ; boardTiles = bt ; myTurn = mt }
+    let mkState b d pn h bag bt mt = {board = b; dict = d;  playerNumber = pn; hand = h; bag = bag ; boardTiles = bt }
 
     let board st         = st.board
     let dict st          = st.dict
@@ -74,23 +72,18 @@ module State =
     let hand st          = st.hand
     let bag st = st.bag    
     let boardTile st = st.boardTiles
-    let myTurn st = st.myTurn
-
+   
+    
 module Scrabble =
     open System.Threading
-    
     type coord = (int * int)
     type letter = uint32 * tile
-    type my_tile = coord * (uint32 * (char * int)) // coord * (id * (char * point))
     type word = (coord * letter) list
     
-    
-    let updateState (st : State.state) (coor : coord) (ch : char) (bt : Map<coord, char>)  =
-        { st with boardTiles = Map.add coor ch bt
-                  (*hand = MultiSet.removeSingle key MS *)}
+    let updateState (st : State.state) (coor : coord) (ch : char) (bt : Map<coord, char> )  =
+        { st with boardTiles = Map.add coor ch bt}
         
     let charsOnHand pieces (st : State.state) = List.map (fun id -> Map.find id pieces) (MultiSet.toList st.hand)
-    //let charsOnHandNoPoints pieces (st : State.state) = List.map (fun (x : tile) -> fst (x.MinimumElement)) (charsOnHand pieces st)
         
     // if the list returns the a list of false then there are no tiles reserving the coordinates on the board
     let checkReservedCoordPlacement (c : coord) (boardTiles : Map<coord, char>) : char option  =
@@ -106,16 +99,12 @@ module Scrabble =
     let tryFirstWord (hand : letter list) dicti st : letter list =
         //Only finds all the words starting with the letter hand.[0]
         let rec aux (unusedHand : letter list) (beenChecked : letter list) dict (acc : letter list) =
-            //printfn $"beenChecked : {beenChecked}"
-            //printfn $"Hand : {unusedHand}"
-            //printfn $"Acc : {acc}"
             match unusedHand with
             | x::xs ->
                 let c = extractCharFromLetter x
                 match Dictionary.step c.[0] dict with //todo : joker is always a rn
                 | Some (false, newDict) ->
                     let newAcc = acc@[x]
-                    //printfn $"Acc : {newAcc}"
                     aux ((xs)@beenChecked) [] newDict newAcc
                 | Some (true, newDict) ->
                     let newAcc = acc@[x]
@@ -139,7 +128,6 @@ module Scrabble =
                     
             | [] -> []
         aux hand [] dicti []
-    
     let rec findFirstWord (hand : letter list) dicti st : letter list =
         let rec aux i hand dicti st=
             let res = tryFirstWord hand dicti st
@@ -151,15 +139,7 @@ module Scrabble =
         aux 1 hand dicti st
     
     let findWordOnTile (givenChar : letter) (hand : letter list) dict : (letter list) list =
-        
         let rec aux (beenChecked : letter list) (h : letter list) d prevD (acc : letter list) i (listOfWords : (letter list) list): (letter list) list =
-            //printfn $"\n###########################"
-            //printfn $"beenChecked: {beenChecked}"
-            //printfn $"Hand        : {h}"
-            //printfn $"Acc         : {acc}"
-            //printfn $"index       : {i}"
-            //printfn $"listOfWords : {listOfWords}"
-            //printfn $"###########################"
             if (i > 8 || (h.IsEmpty && beenChecked.IsEmpty ))
             then listOfWords
             else
@@ -167,7 +147,6 @@ module Scrabble =
                  then the given tile char is added to our acc and we try to test the rest of the hand on it *)
                 if ((List.length acc) = i)
                 then
-                    //printfn $"Adding given char : {givenChar}"
                     // with the acc step into the sub trie with the given char
                     let gc = extractCharFromLetter givenChar
                     match Dictionary.step gc.[0] d with
@@ -250,7 +229,13 @@ module Scrabble =
         
         let h1 = (checkReservedCoordPlacement (gcX-1, gcY) st.boardTiles).IsNone
         let h2 = (checkReservedCoordPlacement (gcX+1, gcY) st.boardTiles).IsNone
+        //Gik flere steder
+        let v1 = (checkReservedCoordPlacement (gcX, gcY-1) st.boardTiles).IsNone
+        let v2 = (checkReservedCoordPlacement (gcX, gcY+1) st.boardTiles).IsNone
+        
         let horizontal = (h1&&h2)
+        let vertical = (v1&&v2)
+        //else can not be placed
         
         match (horizontal) with
         | true ->
@@ -274,25 +259,30 @@ module Scrabble =
             | _     -> StateMonad.Failure wl
             
         | false ->
-            printfn $"Trying vertical:"
-            let wordListBeforeGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY-i-1)), e)) (List.rev wordListBeforeGC)
-            let wordListAfterGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY+i+1)), e)) wordListAfterGC
-            printfn $"List before given coordinate {wordListBeforeGC_Coordinates} and after {wordListAfterGC_Coordinates}"
+            match (vertical) with
+            |true -> 
+                printfn $"Trying vertical:"
+                let wordListBeforeGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY-i-1)), e)) (List.rev wordListBeforeGC)
+                let wordListAfterGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY+i+1)), e)) wordListAfterGC
+                printfn $"List before given coordinate {wordListBeforeGC_Coordinates} and after {wordListAfterGC_Coordinates}"
+                
+                let wl = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
+                
+                let b = List.fold (fun acc e ->
+                    match acc with
+                    | Some v ->
+                        printfn $"The tile before {e} is reserved by another tile."
+                        acc
+                    | None -> (checkReservedCoordPlacement (fst e) st.boardTiles)) None wl
+                match b with
+                | None ->
+                    printfn $"The word {wl} can be placed on board."
+                    StateMonad.Success wl
+                | _     -> StateMonad.Failure wl
+            | false ->
+                printfn $"failed"
+                StateMonad.Failure []
             
-            let wl = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
-            
-            let b = List.fold (fun acc e ->
-                match acc with
-                | Some v ->
-                    printfn $"The tile before {e} is reserved by another tile."
-                    acc
-                | None -> (checkReservedCoordPlacement (fst e) st.boardTiles)) None wl
-            match b with
-            | None ->
-                printfn $"The word {wl} can be placed on board."
-                StateMonad.Success wl
-            | _     -> StateMonad.Failure wl
-    
     let findCoordsForFirstWord (w : letter list) (st : State.state) : StateMonad.Result<'a, word> =
         let x, y = st.board.center
         let wl = List.mapi (fun i e ->(x+i, y), e) w
@@ -353,7 +343,7 @@ module Scrabble =
 
     let playGame cstream (pieces:Map<uint32,tile>) (st : State.state) =
         
-        let changeTiles (state : State.state) =
+        let changeTiles (state : State.state) = //if vildcard -> change tiles
                 printfn $"Changing tiles"
                 let hand = toList state.hand
                 if st.bag > 2u
@@ -363,17 +353,6 @@ module Scrabble =
         let makeMovePlayable (w : word) =
                 let newTile s : (char * int) = (Set.toList (snd s)).Head
                 List.map (fun e -> (fst e, (fst (snd e),(newTile (snd e))) )) w
-            
-        let rec checkTurn newHand (state : State.state) : word =
-                if (st.myTurn)
-                then
-                    let st' = State.mkState state.board state.dict state.playerNumber state.hand state.bag state.boardTiles false
-                    printfn $"finding word..."
-                    findMove newHand st'
-                else
-                    printfn $"not my turn trying again in 0.5 seconds"
-                    System.Threading.Thread.Sleep(500)
-                    checkTurn newHand state
         
 
         let rec aux (st : State.state) =
