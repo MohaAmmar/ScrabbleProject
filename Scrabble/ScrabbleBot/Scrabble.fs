@@ -414,12 +414,13 @@ module Scrabble =
                 
 
                 let movedTiles = ofList (List.fold (fun acc ls -> (fst (snd ls))::acc) [] ms)
+                printfn $"movedTileOnBoard before adding them to BT {movedTileOnBoard ms}"    
                 let handWithoutMovedTiles = subtract st.hand movedTiles 
                 let newHand = List.fold (fun acc (a, times) -> add a times acc) handWithoutMovedTiles newPieces
                 let newBag = st.bag - uint32(List.length newPieces)
                 
                 
-                let newBT = Map.fold (fun _ k v -> Map.add k v st.boardTiles ) Map.empty (movedTileOnBoard ms)
+                let newBT = Map.fold (fun i k v -> Map.add k v i ) st.boardTiles (movedTileOnBoard ms)
                 printfn $"New Board Tiles {newBT}"    
                 
                 let st' = State.mkState st.board st.dict st.playerNumber newHand newBag newBT
