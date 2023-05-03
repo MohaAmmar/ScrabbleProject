@@ -1,6 +1,8 @@
 ﻿namespace SpicyScrabble
 
+
 open System.Collections.Generic
+open System
 open System.Xml.Xsl
 open ScrabbleUtil
 open ScrabbleUtil.ServerCommunication
@@ -61,11 +63,13 @@ module State =
         hand          : MultiSet.MultiSet<uint32>
         bag           : uint32
         boardTiles    : Map<coord, char>
+        myTurn          : Boolean
         // TODO: add player turn ? It is said in the assignment we need to know when it is our turn
     }
 
-    let mkState b d pn h bag bt = {board = b; dict = d;  playerNumber = pn; hand = h; bag = bag ; boardTiles = bt }
+    let mkState b d pn h bag bt mt = {board = b; dict = d;  playerNumber = pn; hand = h; bag = bag ; boardTiles = bt ; myTurn = mt}
 
+    let myTurn st       = st.myTurn 
     let board st         = st.board
     let dict st          = st.dict
     let playerNumber st  = st.playerNumber
@@ -242,7 +246,7 @@ module Scrabble =
                     | []        -> listOfWords
         aux [] hand dict dict [] 0 []
         
-    let findCoordsForWord (w : letter list) (horizontal : bool) (gcCoords : coord) (givenChar : letter) (st : State.state) : StateMonad.Result<'a, word> =
+    let findCoordsForWord (w : letter list)  (gcCoords : coord) (givenChar : letter) (st : State.state) : StateMonad.Result<'a, word> =
         printfn $"\nFinding coordinates for word : {w}"
         let gcX, gcY = gcCoords
         printfn $"gcX, gcY : {gcX}, {gcY}"
@@ -253,6 +257,10 @@ module Scrabble =
         
         let wordListBeforeGC    = w[0..position-1]
         let wordListAfterGC     = w[position+1..]
+        
+        let h1 = (checkReservedCoordPlacement (gcX-1, gcY) st.boardTiles).IsNone
+        let h2 = (checkReservedCoordPlacement (gcX+1, gcY) st.boardTiles).IsNone
+        let horizontal = h1&&h2
         
         match horizontal with
         | true ->
@@ -326,25 +334,15 @@ module Scrabble =
                  match ws with
                  | x::xs    ->
                      printfn $"findMove : Board is NOT empty"
-                     (*let justDoneVertical = false
-                     if justDoneVertical
-                     then
-                         match (findCoordsForWord x true gcCoords givenChar st) with
-                         | StateMonad.Success v    -> v
-                         | StateMonad.Failure _     -> aux xs gcCoords givenChar
-                     else
-                         match (findCoordsForWord x false gcCoords givenChar st) with
-                         | StateMonad.Success v    -> v
-                         | StateMonad.Failure _     -> aux xs gcCoords givenChar*)
-                         
-                     match (findCoordsForWord x false gcCoords givenChar st) with
+                     match (findCoordsForWord x gcCoords givenChar st) with
                      | StateMonad.Success v    ->
                          printfn $"findMove: not empty board : returning word {v}"
                          v
                      | StateMonad.Failure _     ->
-                         match (findCoordsForWord x true gcCoords givenChar st) with
+                         []
+                         (*match (findCoordsForWord x true gcCoords givenChar st) with
                          | StateMonad.Success v    -> v
-                         | StateMonad.Failure _     -> aux xs gcCoords givenChar
+                         | StateMonad.Failure _     -> aux xs gcCoords givenChar*)
                  | []       -> []
              
              let rec miniAux (givenChars : (coord * char) list ) =
@@ -367,6 +365,29 @@ module Scrabble =
 
     let playGame cstream (pieces:Map<uint32,tile>) (st : State.state) =
 
+        let changeTiles =
+                printfn $"Changing tiles"
+                let hand = toList st.hand
+                if st.bag > 2u
+                then hand[0..2] 
+                else hand[0..0] 
+            
+        let makeMovePlayable (w : word) =
+                let newTile s : (char * int) = (Set.toList (snd s)).Head
+                List.map (fun e -> (fst e, (fst (snd e),(newTile (snd e))) )) w
+        
+        
+        let rec checkTurn newHand : word =
+                if (st.myTurn)
+                then
+                    let st' = State.mkState st.board st.dict st.playerNumber st.hand st.bag st.boardTiles false
+                    printfn $"finding word..."
+                    findMove newHand st'
+                else
+                    printfn $"not my turn trying again in 0.5 seconds"
+                    System.Threading.Thread.Sleep(500)
+                    checkTurn newHand
+        
         let rec aux (st : State.state) =
             Print.printHand pieces (State.hand st)
             
@@ -383,28 +404,14 @@ module Scrabble =
 
             //debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
             
-        
-            let changeTiles =
-                printfn $"Changing tiles"
-                let hand = toList st.hand
-                if st.bag > 2u
-                then hand[0..2] 
-                else hand[0..0] 
-            
-            let makeMovePlayable (w : word) =
-                let newTile s : (char * int) = (Set.toList (snd s)).Head
-                List.map (fun e -> (fst e, (fst (snd e),(newTile (snd e))) )) w
-            
-            //It all starts here :)
-            let foundWord = findMove newHand st
+            let foundWord = checkTurn newHand
             
             match foundWord with
             | x::xs ->
-                send cstream (SMPlay (makeMovePlayable foundWord))
+                    send cstream (SMPlay (makeMovePlayable (foundWord)))
             | [] -> send cstream (SMChange changeTiles)
-
+            
             let msg = recv cstream
-            //debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
@@ -418,12 +425,10 @@ module Scrabble =
                 let newHand = List.fold (fun acc (a, times) -> add a times acc) handWithoutMovedTiles newPieces
                 let newBag = st.bag - uint32(List.length newPieces)
                 
-                
                 let newBT = Map.fold (fun _ k v -> Map.add k v st.boardTiles ) Map.empty (movedTileOnBoard ms)
                 printfn $"New Board Tiles {newBT}"    
                 
-                let st' = State.mkState st.board st.dict st.playerNumber newHand newBag newBT
-                
+                let st' = State.mkState st.board st.dict st.playerNumber newHand newBag newBT true
                 
                 aux st'
                 
@@ -431,7 +436,7 @@ module Scrabble =
                 let movedTiles = ofList changeTiles
                 let handWithoutMovedTiles = subtract st.hand movedTiles 
                 let newHand = List.fold (fun acc (a, times) -> add a times acc) handWithoutMovedTiles newPieces
-                let st' = State.mkState st.board st.dict st.playerNumber newHand st.bag  st.boardTiles//hvis der er problem med at der mangler brikker så er det nok her der skal fixes noget
+                let st' = State.mkState st.board st.dict st.playerNumber newHand st.bag  st.boardTiles true//hvis der er problem med at der mangler brikker så er det nok her der skal fixes noget
                 aux st'
                 
             | RCM (CMPlayed (pid, ms, points)) -> // not relevant : since we do not offer multiplayer
@@ -475,5 +480,5 @@ module Scrabble =
                   
         let handSet = List.fold (fun acc (x, k) -> MultiSet.add x k acc) MultiSet.empty hand
 
-        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet 70u Map.empty)
+        fun () -> playGame cstream tiles (State.mkState board dict playerNumber handSet 70u Map.empty true)
         
