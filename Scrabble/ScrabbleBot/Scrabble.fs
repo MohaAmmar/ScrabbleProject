@@ -430,8 +430,9 @@ module Scrabble =
                 let newBT = Map.fold (fun i k v -> Map.add k v i ) st.boardTiles (movedTileOnBoard ms)
                 printfn $"New Board Tiles {newBT}"    
                 
+
                 let st' = State.mkState st.board st.dict st.playerNumber newHand newBag newBT true
-                
+
                 aux st'
                 
             | RCM (CMChangeSuccess(newPieces)) ->
