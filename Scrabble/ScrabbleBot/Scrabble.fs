@@ -245,7 +245,8 @@ module Scrabble =
     let isTileOccupied (c: coord) (st: State.state) =
         match st.boardTiles.TryFind c with
         | Some v    -> Some v
-        | None      -> None    
+        | None      -> None
+        
     let findCoordsForWord (w : letter list) (horizontal : bool) (gcCoords : coord) (givenChar : letter) (st : State.state) : StateMonad.Result<'a, word> =
         printfn $"\nFinding coordinates for word : {w}"
         let gcX, gcY = gcCoords
@@ -276,12 +277,20 @@ module Scrabble =
 
             let (word:word) = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
             
-            let isAnyTilesDisturbing = List.fold (fun acc e ->
-                match acc with
-                | Some v ->
-                    printfn $"The tile before {e} is reserved by another tile."
-                    acc
-                | None -> (isTileOccupied (fst e) st)) None word //up down 
+            let isAnyTilesDisturbing =
+                List.fold
+                  (fun acc e ->
+                    match acc with
+                    | Some v ->
+                        printfn $"The tile before {e} is reserved by another tile."
+                        acc
+                    | None -> match (isTileOccupied (fst e) st) with
+                              | Some v -> acc 
+                              | None -> match (isTileOccupied (fst ((fst e), snd(fst e) - 1 )) st) with
+                                    | Some v -> acc 
+                                    | None -> (isTileOccupied (fst ((fst e), snd(fst e) + 1 )) st)
+                                
+                ) None word //up down 
             
             match isAnyTilesDisturbing with
             | None ->
@@ -297,19 +306,27 @@ module Scrabble =
                 let wordListAfterGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY+i+1)), e)) wordListAfterGC
                 printfn $"List before given coordinate {wordListBeforeGC_Coordinates} and after {wordListAfterGC_Coordinates}"
                 
-                let wl = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
+                let word = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
                 
-                let isAnyTilesDisturbing = List.fold (fun acc e ->
-                    match acc with
-                    | Some v ->
-                        printfn $"The tile before {e} is reserved by another tile."
-                        acc
-                    | None -> (isTileOccupied (fst e) st)) None wl //left right 
+                let isAnyTilesDisturbing =
+                    List.fold
+                      (fun acc e ->
+                        match acc with
+                        | Some v ->
+                            printfn $"The tile before {e} is reserved by another tile."
+                            acc
+                        | None -> match (isTileOccupied (fst e) st) with
+                                  | Some v -> acc 
+                                  | None -> match (isTileOccupied ((fst (fst e) - 1), snd(fst e) ) st) with
+                                        | Some v -> acc 
+                                        | None -> (isTileOccupied ((fst (fst e) + 1), snd(fst e) ) st)
+                                    
+                    ) None word //left right 
                 match isAnyTilesDisturbing with
                 | None ->
-                    printfn $"The word {wl} can be placed on board."
-                    StateMonad.Success wl
-                | _     -> StateMonad.Failure wl
+                    printfn $"The word {word} can be placed on board."
+                    StateMonad.Success word
+                | _     -> StateMonad.Failure word
             | false ->
                 printfn $"failed"
                 StateMonad.Failure [] //Not possible to plave the word
@@ -345,17 +362,7 @@ module Scrabble =
                  match ws with
                  | x::xs    ->
                      printfn $"findMove : Board is NOT empty"
-                     (*let justDoneVertical = false
-                     if justDoneVertical
-                     then
-                         match (findCoordsForWord x true gcCoords givenChar st) with
-                         | StateMonad.Success v    -> v
-                         | StateMonad.Failure _     -> aux xs gcCoords givenChar
-                     else
-                         match (findCoordsForWord x false gcCoords givenChar st) with
-                         | StateMonad.Success v    -> v
-                         | StateMonad.Failure _     -> aux xs gcCoords givenChar*)
-                         
+                     
                      match (findCoordsForWord x false gcCoords givenChar st) with
                      | StateMonad.Success v    ->
                          printfn $"findMove: not empty board : returning word {v}"
@@ -370,7 +377,7 @@ module Scrabble =
                  if (givenChars.IsEmpty)
                  then []
                  else 
-                     let fakeTile : tile = Set.add ((snd givenChars.Head), 0) Set.empty
+                     let fakeTile : tile = Set.add ((snd givenChars.Head), 1) Set.empty
                      let fakeLetter : letter = (0u, fakeTile)
                      
                      let words = findWordOnTile fakeLetter hand st.dict
