@@ -60,7 +60,7 @@ module State =
         playerNumber  : uint32
         hand          : MultiSet.MultiSet<uint32>
         bag           : uint32
-        boardTiles    : Map<coord, char>
+        boardTiles    : Map<coord, (char * uint32) >
         // TODO: add player turn ? It is said in the assignment we need to know when it is our turn
     }
 
@@ -82,28 +82,15 @@ module Scrabble =
     type my_tile = coord * (uint32 * (char * int)) // coord * (id * (char * point))
     type word = (coord * letter) list
     
-    
-    let updateState (st : State.state) (coor : coord) (ch : char) (bt : Map<coord, char>)  =
-        { st with boardTiles = Map.add coor ch bt
-                  (*hand = MultiSet.removeSingle key MS *)}
         
     let charsOnHand pieces (st : State.state) = List.map (fun id -> Map.find id pieces) (MultiSet.toList st.hand)
     //let charsOnHandNoPoints pieces (st : State.state) = List.map (fun (x : tile) -> fst (x.MinimumElement)) (charsOnHand pieces st)
         
     // if the list returns the a list of false then there are no tiles reserving the coordinates on the board
-    let checkReservedCoordPlacement (c : coord) (boardTiles : Map<coord, char>) : char option  =
+    let checkReservedCoordPlacement (c : coord) (boardTiles : Map<coord, (char*uint32)>) : char option  =
         match (boardTiles.TryFind c) with
-            | Some v    -> Some v
+            | Some (c,id)    -> Some c
             | None      -> None
-    
-    (*let checkValidDirection (coordinate : coord) (horizontal : bool) (boardTiles : Map<coord, char>) : bool=
-        let x, y = coordinate
-        match horizontal with
-        | true  ->
-            match (fst (checkReservedCoordPlacement ((x+1), y) boardTiles)) with
-            | Some v -> true
-            | None  -> false
-        | false  -> fst (checkReservedCoordPlacement (x, (y+1)) boardTiles)*)
         
     let extractCharFromLetter (l : letter) : char list =
         let temp = snd l
@@ -112,16 +99,12 @@ module Scrabble =
     let tryFirstWord (hand : letter list) dicti st : letter list =
         //Only finds all the words starting with the letter hand.[0]
         let rec aux (unusedHand : letter list) (beenChecked : letter list) dict (acc : letter list) =
-            //printfn $"beenChecked : {beenChecked}"
-            //printfn $"Hand : {unusedHand}"
-            //printfn $"Acc : {acc}"
             match unusedHand with
             | x::xs ->
                 let c = extractCharFromLetter x
                 match Dictionary.step c.[0] dict with //todo : joker is always a rn
                 | Some (false, newDict) ->
                     let newAcc = acc@[x]
-                    //printfn $"Acc : {newAcc}"
                     aux ((xs)@beenChecked) [] newDict newAcc
                 | Some (true, newDict) ->
                     let newAcc = acc@[x]
@@ -343,7 +326,7 @@ module Scrabble =
             | None -> StateMonad.Success wl
             | _     -> StateMonad.Failure wl
     
-    let findMove (hand : letter list ) (st : State.state) : word =
+    let findMove (hand : letter list ) (st : State.state) (pieces:Map<uint32,tile>) : word =
         //printfn $"From pieces to hand : hand {hand}"
         
         match Map.isEmpty st.boardTiles with
@@ -373,20 +356,26 @@ module Scrabble =
                          | StateMonad.Failure _     -> aux xs gcCoords givenChar
                  | []       -> []
              
-             let rec miniAux (givenChars : (coord * char) list ) =
+             let rec miniAux (givenChars : (coord * (char * uint32)) list ) (pieces:Map<uint32,tile>) =
                  if (givenChars.IsEmpty)
                  then []
-                 else 
-                     let fakeTile : tile = Set.add ((snd givenChars.Head), 1) Set.empty
-                     let fakeLetter : letter = (0u, fakeTile)
+                 else
+                     let id = snd (snd givenChars.Head) 
+                     let tile = (Map.find id pieces)
+                     //let fakeTile : tile =      Set.add ((snd givenChars.Head), 1) Set.empty
+                     let letter : letter = (id, tile)
                      
-                     let words = findWordOnTile fakeLetter hand st.dict
+                     let words = findWordOnTile letter hand st.dict
                      
+                     
+                     printfn $"Mie Find Words {words[0]}"
+                     let l = List.rev givenChars
                      if words.IsEmpty
-                     then miniAux (List.rev givenChars.Tail)
-                     else aux words (fst givenChars.Head) fakeLetter
+                     then miniAux (l.Tail) pieces
+                     else
+                         aux words (fst l.Head) letter
                      
-             miniAux givenChars
+             miniAux givenChars pieces
 
     let idToTile (pieces:Map<uint32,tile>) (hand : MultiSet<uint32>) : letter list =
         MultiSet.fold (fun (acc: letter list) (i : uint32) _ -> (i, (Map.find i pieces))::acc) [] hand
@@ -423,7 +412,7 @@ module Scrabble =
                 List.map (fun e -> (fst e, (fst (snd e),(newTile (snd e))) )) w
             
             //It all starts here :)
-            let foundWord = findMove newHand st
+            let foundWord = findMove newHand st pieces
             
             match foundWord with
             | x::xs ->
@@ -436,8 +425,11 @@ module Scrabble =
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
-                let movedTileOnBoard (m : (coord * (uint32 * (char * int))) list) : Map<coord, char> =
-                    List.fold (fun acc e -> Map.add (fst e) (fst (snd (snd e))) acc ) Map.empty m
+                let movedTileOnBoard (m:(coord * (uint32 * (char * int))) list) : Map<coord, (char*uint32)> =
+                    List.fold (fun acc (coord, (u32, (ch, _))) ->
+                    Map.add coord (ch, u32) acc
+                    ) Map.empty m
+                    //List.fold (fun acc e -> Map.add (fst e) (fst (snd e)) (fst (snd (snd e))) acc ) Map.empty m
                 
 
                 let movedTiles = ofList (List.fold (fun acc ls -> (fst (snd ls))::acc) [] ms)
