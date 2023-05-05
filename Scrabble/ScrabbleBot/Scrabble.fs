@@ -89,17 +89,18 @@ module Scrabble =
     // if the list returns the a list of false then there are no tiles reserving the coordinates on the board
     let checkReservedCoordPlacement (c : coord) (boardTiles : Map<coord, (char*uint32)>) : char option  =
         match (boardTiles.TryFind c) with
-            | Some (c,id)    -> Some c
+            | Some (c,_)    -> Some c
             | None      -> None
         
     let extractCharFromLetter (l : letter) : char list =
         let temp = snd l
         Set.fold (fun acc e -> (fst e)::acc) [] temp
     
-    let tryFirstWord (hand : letter list) dicti st : letter list =
+    let tryFirstWord (hand : letter list) dicti  : letter list =
         //Only finds all the words starting with the letter hand.[0]
         let rec aux (unusedHand : letter list) (beenChecked : letter list) dict (acc : letter list) =
             match unusedHand with
+            | [] -> []
             | x::xs ->
                 let c = extractCharFromLetter x
                 match Dictionary.step c.[0] dict with //todo : joker is always a rn
@@ -114,24 +115,21 @@ module Scrabble =
                         newAcc
                     else aux ((xs)@beenChecked) [] newDict (newAcc)    
                 | None ->
-                    if xs.IsEmpty
-                    then
-                        if (acc.IsEmpty)
-                        then []
-                        else
-                            let t = acc[acc.Length-1]
-                            //printfn $"We remove {t} from acc"
-                            let newAcc = List.removeAt (acc.Length-1) acc
-                            //printfn $"newAcc : {newAcc}"
-                            aux (unusedHand@beenChecked) [t] dict newAcc
-                    else aux (xs) (x::beenChecked) dict acc
-                    
-            | [] -> []
+                    match xs with
+                    |[] -> match acc with
+                            | [] -> []
+                            | _ ->
+                                let t = (List.rev acc)[0]
+                                //printfn $"We remove {t} from acc"
+                                let newAcc = List.removeAt (acc.Length-1) acc
+                                //printfn $"newAcc : {newAcc}"
+                                aux (unusedHand@beenChecked) [t] dict newAcc
+                    | _ -> aux (xs) (x::beenChecked) dict acc
         aux hand [] dicti []
     
     let rec findFirstWord (hand : letter list) dicti st : letter list =
         let rec aux i hand dicti st=
-            let res = tryFirstWord hand dicti st
+            let res = tryFirstWord hand dicti
             match res with
             | [] -> if i < List.length hand 
                     then aux (i+1) (hand.Tail@[hand.Head]) dicti st
@@ -139,16 +137,15 @@ module Scrabble =
             | _ -> res
         aux 1 hand dicti st
     
-    let findWordOnTile (givenChar : letter) (hand : letter list) dict : (letter list) list =
-        
+    let findWordOnTile (givenChar : letter) (hand : letter list) (dict : Dictionary.Dict) : (letter list) list =
         let rec aux (beenChecked : letter list) (h : letter list) d prevD (acc : letter list) i (listOfWords : (letter list) list): (letter list) list =
-            if (i > 8 || (h.IsEmpty && beenChecked.IsEmpty ))
-            then listOfWords
-            else
+            match (i > 8 || (h.IsEmpty && not beenChecked.IsEmpty )) with
+            |true -> listOfWords
+            |false ->
                  (*if the size of the list hits the index of where we should try to put the tile
                  then the given tile char is added to our acc and we try to test the rest of the hand on it *)
-                if ((List.length acc) = i)
-                then
+                match ((List.length acc) = i) with 
+                | true -> 
                     //printfn $"Adding given char : {givenChar}"
                     // with the acc step into the sub trie with the given char
                     let gc = extractCharFromLetter givenChar
@@ -170,10 +167,12 @@ module Scrabble =
                     | None              ->
                         //printfn $"Not a word : {acc} @ {givenChar}, trying given char at next index."
                         aux [] (h@beenChecked) d dict [] (i+1) listOfWords
-                else 
+                |false -> 
                     match h with
+                    | []        -> listOfWords
                     | x::xs     ->
                         let c = extractCharFromLetter x
+                        //printfn $"dis some bullshit {c}"
                         match Dictionary.step c.[0] d with
                         (* there is a subtrie but it is not the end of the word
                          so we add the given char to the acc and tries the rest
@@ -199,7 +198,7 @@ module Scrabble =
                             then
                                 if (List.length acc < 1)
                                 then
-                                    //printfn $"No word can be put with given char {givenChar} at index {i}. Index has been incremented."
+                                    printfn $"No word can be put with given char {givenChar} at index {i}. Index has been incremented."
                                     aux [] (h@beenChecked@acc) dict dict [] (i+1) listOfWords
                                 else
                                     let t = acc[acc.Length-1]
@@ -215,10 +214,13 @@ module Scrabble =
                             else
                                 //printfn $"Found None : {x} has been added to checked letters."
                                 aux (x::beenChecked) xs d prevD acc i listOfWords
-                    | []        -> listOfWords
+                   
         aux [] hand dict dict [] 0 []
     
-    let isTileOccupied (c: coord) (st: State.state) =
+    
+
+    
+    let isTileOccupied (c: coord) (st: State.state) = //maybe this should be bool?
         match st.boardTiles.TryFind c with
         | Some v    -> Some v
         | None      -> None
@@ -363,9 +365,11 @@ module Scrabble =
                      printfn $"Mie find letter {letter}"
                      printfn $"Mie find hand {hand }"
                      let words = findWordOnTile letter hand st.dict
-                     
-                     
                      printfn $"Mie Find Words {words[0]}"
+                     let l = List.rev givenChars
+                     
+                    
+                     
                      let l = List.rev givenChars
                      if words.IsEmpty
                      then miniAux (l.Tail) pieces
