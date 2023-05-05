@@ -142,13 +142,6 @@ module Scrabble =
     let findWordOnTile (givenChar : letter) (hand : letter list) dict : (letter list) list =
         
         let rec aux (beenChecked : letter list) (h : letter list) d prevD (acc : letter list) i (listOfWords : (letter list) list): (letter list) list =
-            //printfn $"\n###########################"
-            //printfn $"beenChecked: {beenChecked}"
-            //printfn $"Hand        : {h}"
-            //printfn $"Acc         : {acc}"
-            //printfn $"index       : {i}"
-            //printfn $"listOfWords : {listOfWords}"
-            //printfn $"###########################"
             if (i > 8 || (h.IsEmpty && beenChecked.IsEmpty ))
             then listOfWords
             else
@@ -230,11 +223,11 @@ module Scrabble =
         | Some v    -> Some v
         | None      -> None
         
-    let findCoordsForWord (w : letter list) (horizontal : bool) (gcCoords : coord) (givenChar : letter) (st : State.state) : StateMonad.Result<'a, word> =
+    let findCoordsForWord (w : letter list) (gcCoords : coord) (givenChar : letter) (st : State.state) : StateMonad.Result<'a, word> =
         printfn $"\nFinding coordinates for word : {w}"
         let gcX, gcY = gcCoords
         printfn $"gcX, gcY : {gcX}, {gcY}"
-        
+        printfn $"wordlist before stuff : {w}"
         let givenCharChar = fst (Set.minElement (snd givenChar))
         let position = List.findIndex (fun x -> givenCharChar = fst (Set.minElement (snd x)) ) w
         printfn $"Given Char {givenCharChar} is at position {position} on coordinates ({gcX}, {gcY})"
@@ -258,7 +251,7 @@ module Scrabble =
             let wordListAfterGC_Coordinates = List.mapi (fun i e ->(((gcX+i+1), gcY), e)) wordListAfterGC
             printfn $"List before given coordinate {wordListBeforeGC_Coordinates} and after {wordListAfterGC_Coordinates}"
 
-            let (word:word) = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
+            let (word) = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
             
             let isAnyTilesDisturbing =
                 List.fold
@@ -267,11 +260,15 @@ module Scrabble =
                     | Some v ->
                         printfn $"The tile before {e} is reserved by another tile."
                         acc
-                    | None -> match (isTileOccupied (fst e) st) with
-                              | Some v -> acc 
-                              | None -> match (isTileOccupied (fst ((fst e), snd(fst e) - 1 )) st) with
+                    | None -> printfn $"is tile occupied {(isTileOccupied (fst e) st).ToString}  with coods { (fst e)}, where x coord { fst(fst e)} and with y coord {snd(fst e)}"
+                              match (isTileOccupied (fst e) st) with
+                                
+                              | Some v -> acc //mayby no 
+                              | None ->
+                                    printfn $"is tile occupied up {(isTileOccupied (fst e) st).ToString} with coods {(fst(fst e), snd(fst e)-1)}"
+                                    match (isTileOccupied (fst(fst e), snd(fst e)-1) st) with
                                     | Some v -> acc 
-                                    | None -> (isTileOccupied (fst ((fst e), snd(fst e) + 1 )) st)
+                                    | None -> (isTileOccupied (fst(fst e), snd(fst e)+1) st)
                                 
                 ) None word //up down 
             
@@ -300,9 +297,9 @@ module Scrabble =
                             acc
                         | None -> match (isTileOccupied (fst e) st) with
                                   | Some v -> acc 
-                                  | None -> match (isTileOccupied ((fst (fst e) - 1), snd(fst e) ) st) with
+                                  | None -> match (isTileOccupied (fst(fst e)-1, snd(fst e)) st) with
                                         | Some v -> acc 
-                                        | None -> (isTileOccupied ((fst (fst e) + 1), snd(fst e) ) st)
+                                        | None -> (isTileOccupied (fst(fst e)+1, snd(fst e)) st)
                                     
                     ) None word //left right 
                 match isAnyTilesDisturbing with
@@ -342,18 +339,16 @@ module Scrabble =
              
              let rec aux (ws : letter list list) (gcCoords : coord) (givenChar : letter) =
                  printfn $"Given char in aux {givenChar}"
+                 printfn $"Given gccoords before stuff {gcCoords}"
+                 printfn $"print ws before stuff {ws}"
                  match ws with
                  | x::xs    ->
                      printfn $"findMove : Board is NOT empty"
-                     
-                     match (findCoordsForWord x false gcCoords givenChar st) with
+                     match (findCoordsForWord x gcCoords givenChar st) with
                      | StateMonad.Success v    ->
                          printfn $"findMove: not empty board : returning word {v}"
                          v
-                     | StateMonad.Failure _     ->
-                         match (findCoordsForWord x true gcCoords givenChar st) with
-                         | StateMonad.Success v    -> v
-                         | StateMonad.Failure _     -> aux xs gcCoords givenChar
+                     | StateMonad.Failure _     -> aux xs gcCoords givenChar
                  | []       -> []
              
              let rec miniAux (givenChars : (coord * (char * uint32)) list ) (pieces:Map<uint32,tile>) =
@@ -365,6 +360,8 @@ module Scrabble =
                      //let fakeTile : tile =      Set.add ((snd givenChars.Head), 1) Set.empty
                      let letter : letter = (id, tile)
                      
+                     printfn $"Mie find letter {letter}"
+                     printfn $"Mie find hand {hand }"
                      let words = findWordOnTile letter hand st.dict
                      
                      
@@ -373,7 +370,8 @@ module Scrabble =
                      if words.IsEmpty
                      then miniAux (l.Tail) pieces
                      else
-                         aux words (fst l.Head) letter
+                         //printfn $"before aux call what is coords? {fst givenChars.Head}"
+                         aux words (fst givenChars.Head) letter
                      
              miniAux givenChars pieces
 
@@ -434,7 +432,7 @@ module Scrabble =
 
                 let movedTiles = ofList (List.fold (fun acc ls -> (fst (snd ls))::acc) [] ms)
                 printfn $"movedTileOnBoard before adding them to BT {movedTileOnBoard ms}"    
-                let handWithoutMovedTiles = subtract st.hand movedTiles 
+                let handWithoutMovedTiles = subtract st.hand movedTiles
                 let newHand = List.fold (fun acc (a, times) -> add a times acc) handWithoutMovedTiles newPieces
                 let newBag = st.bag - uint32(List.length newPieces)
                 
