@@ -101,9 +101,12 @@ module Scrabble =
         let temp = snd l
         Set.fold (fun acc e -> (fst e)::acc) [] temp
     
-    let tryFirstWord (hand : letter list) dicti  : letter list =
+    let tryFirstWord (hand : letter list) dicti st : letter list =
         //Only finds all the words starting with the letter hand.[0]
         let rec aux (unusedHand : letter list) (beenChecked : letter list) dict (acc : letter list) =
+            //printfn $"beenChecked : {beenChecked}"
+            //printfn $"Hand : {unusedHand}"
+            //printfn $"Acc : {acc}"
             match unusedHand with
             | [] -> []
             | x::xs ->
@@ -111,6 +114,7 @@ module Scrabble =
                 match Dictionary.step c.[0] dict with //todo : joker is always a rn
                 | Some (false, newDict) ->
                     let newAcc = acc@[x]
+                    //printfn $"Acc : {newAcc}"
                     aux ((xs)@beenChecked) [] newDict newAcc
                 | Some (true, newDict) ->
                     let newAcc = acc@[x]
@@ -120,21 +124,22 @@ module Scrabble =
                         newAcc
                     else aux ((xs)@beenChecked) [] newDict (newAcc)    
                 | None ->
-                    match xs with
-                    |[] -> match acc with
-                            | [] -> []
-                            | _ ->
-                                let t = (List.rev acc)[0]
-                                //printfn $"We remove {t} from acc"
-                                let newAcc = List.removeAt (acc.Length-1) acc
-                                //printfn $"newAcc : {newAcc}"
-                                aux (unusedHand@beenChecked) [t] dict newAcc
-                    | _ -> aux (xs) (x::beenChecked) dict acc
+                    if xs.IsEmpty
+                    then
+                        if (acc.IsEmpty)
+                        then []
+                        else
+                            let t = acc[acc.Length-1]
+                            //printfn $"We remove {t} from acc"
+                            let newAcc = List.removeAt (acc.Length-1) acc
+                            //printfn $"newAcc : {newAcc}"
+                            aux (unusedHand@beenChecked) [t] dict newAcc
+                    else aux (xs) (x::beenChecked) dict acc
         aux hand [] dicti []
     
     let rec findFirstWord (hand : letter list) dicti st : letter list =
         let rec aux i hand dicti st=
-            let res = tryFirstWord hand dicti
+            let res = tryFirstWord hand dicti st
             match res with
             | [] -> if i < List.length hand 
                     then aux (i+1) (hand.Tail@[hand.Head]) dicti st
@@ -142,50 +147,52 @@ module Scrabble =
             | _ -> res
         aux 1 hand dicti st
     
-    let findWordOnTile (givenChar : letter) (hand : letter list) (dict : Dictionary.Dict) : (letter list) list =
-        let rec aux (beenChecked : letter list) (h : letter list) d prevD (acc : letter list) i (listOfWords : (letter list) list): (letter list) list =
-            match (i > 8 || (h.IsEmpty && not beenChecked.IsEmpty )) with
-            |true -> listOfWords
-            |false ->
+    (*let stepIntoDict givenChar d acc listOfWords=
+        let gc = extractCharFromLetter givenChar
+        match Dictionary.step gc.[0] d with
+        | Some (false, nd)  ->
+            aux [] (h@beenChecked) nd d (acc@[givenChar]) i listOfWords
+        | Some (true, nd)   ->
+            let fWord = acc@[givenChar]
+            aux [] (h@beenChecked) nd d fWord i fWord::listOfWords 
+        | None              ->
+           listOfWords*)
+        
+    
+    let findWordOnTile (givenChar : letter) (hand : letter list) dict : (letter list) list =
+        //let rec aux (beenChecked : letter list) (h : letter list) d prevD (acc : letter list) i (listOfWords : (letter list) list): (letter list) list =
+        let rec aux (beenChecked : letter list) (h : letter list) d (acc : letter list) i (listOfWords : (letter list) list): (letter list) list =
+            if (i > 8 || (h.IsEmpty && beenChecked.IsEmpty ))
+            then listOfWords
+            else
                  (*if the size of the list hits the index of where we should try to put the tile
                  then the given tile char is added to our acc and we try to test the rest of the hand on it *)
-                match ((List.length acc) = i) with 
-                | true -> 
-                    //printfn $"Adding given char : {givenChar}"
-                    // with the acc step into the sub trie with the given char
+                if ((List.length acc) = i)
+                then
                     let gc = extractCharFromLetter givenChar
                     match Dictionary.step gc.[0] d with
-                    (* there is a subtrie but it is not the end of the word so we add the given char
-                     to the acc and tries the rest of the hand, we keep it at the same index so that it wont add the given char again*)
                     | Some (false, nd)  ->
-                        //printfn $"Some (false, nd) : {(acc@[givenChar])}"
-                        aux [] (h@beenChecked) nd d (acc@[givenChar]) i listOfWords
-                    (* there is a subtrie and it is the end of the word, 
-                     so we add it to the list of words *)
+                        aux [] (h@beenChecked) nd (acc@[givenChar]) i listOfWords
                     | Some (true, nd)   ->
                         let fWord = acc@[givenChar]
-                        printfn $"FOUND WORD : {fWord}"
-                        let newlist = fWord::listOfWords
-                        
-                        aux [] (h@beenChecked) nd d fWord i newlist // TODO test
-                    (* there is no subtrie, so we want to check the given char on the next position*)
+                        aux [] (h@beenChecked) nd fWord i (fWord::listOfWords) 
                     | None              ->
-                        //printfn $"Not a word : {acc} @ {givenChar}, trying given char at next index."
-                        aux [] (h@beenChecked) d dict [] (i+1) listOfWords
-                |false -> 
-                    match h with
-                    | []        -> listOfWords
+                       aux [] (h@beenChecked@acc) dict [] (i+1) listOfWords
+                else 
+                   match h with
+                    | []        ->
+                        printfn $"Hand is empty, returning listOfWords: {listOfWords}"
+                        listOfWords
                     | x::xs     ->
                         let c = extractCharFromLetter x
-                        //printfn $"dis some bullshit {c}"
                         match Dictionary.step c.[0] d with
                         (* there is a subtrie but it is not the end of the word
                          so we add the given char to the acc and tries the rest
                          of the hand, we keep it at the same index since we doesn't
                          want to affect it's placement in the word here*)
                         | Some (false, nd)  ->
-                            //printfn $"Some (false, nd) : {(acc@[x])}"
-                            aux [] (xs@beenChecked) nd d (acc@[x]) i listOfWords
+                            printfn $"Some (false, nd) : {(acc@[x])}"
+                            aux [] (xs@beenChecked) nd (acc@[x]) i listOfWords
                             
                         | Some (true, nd)   ->
                             if ((List.length acc) > i)
@@ -193,37 +200,26 @@ module Scrabble =
                                 let fWord = acc@[x]
                                 printfn $"FOUND WORD : {fWord}"
                                 let newlist = fWord::listOfWords
-                                aux beenChecked xs nd d fWord i newlist
+                                aux beenChecked xs nd fWord i newlist
                             else
                                 let fWord = acc@[x]
-                                //printfn $"FOUND WORD : {fWord}, but does not contain given letter"
-                                aux [] (xs@beenChecked) nd d fWord i listOfWords
+                                printfn $"Found word : {fWord}, but does not contain given letter"
+                                aux (x::beenChecked) xs d acc i listOfWords
+                                
+                                //aux [] (xs@beenChecked) nd fWord i listOfWords
                         | None              ->
-                            if xs.IsEmpty
-                            then
-                                if (List.length acc < 1)
-                                then
-                                    printfn $"No word can be put with given char {givenChar} at index {i}. Index has been incremented."
-                                    aux [] (h@beenChecked@acc) dict dict [] (i+1) listOfWords
-                                else
-                                    let t = acc[acc.Length-1]
-                                    if (((List.length acc)-1) > i)
-                                    then
-                                        //printfn $"We remove {t} from acc"
-                                        let newAcc = List.removeAt (acc.Length-1) acc
-                                        //printfn $"newAcc : {newAcc}"
-                                        aux (t::beenChecked) h prevD prevD newAcc i listOfWords
-                                    else
-                                        if i < 8 then
-                                            printfn $"We loop here with char {givenChar} at index {i}"
-                                            //printfn $"No word can be put with given char {givenChar} at index {i}. Index has been incremented."
-                                            aux [] (h@beenChecked@acc) dict dict [] (i+1) listOfWords
-                                        else  aux [] xs d prevD acc i listOfWords
-                            else
-                                //printfn $"Found None : {x} has been added to checked letters."
-                                aux (x::beenChecked) xs d prevD acc i listOfWords
-                   
-        aux [] hand dict dict [] 0 []
+                            match xs with
+                            | []    ->
+                                let accWithoutGC = List.removeAt i acc
+                                printfn $"No word can be put with given char {givenChar} at index {i}. Index has been incremented."
+                                listOfWords
+                                //aux [] (h@beenChecked@accWithoutGC) dict [] (i+1) listOfWords
+                            | x::xs ->
+                                printfn $"Found None : {x} has been added to checked letters."
+                                aux (x::beenChecked) xs d acc i listOfWords        
+                    
+        aux [] hand dict [] 0 []
+        
    
         
     let findCoordsForWord (w : letter list) (gcCoords : coord) (givenChar : letter) (st : State.state) : StateMonad.Result<'a, word> =
@@ -249,38 +245,89 @@ module Scrabble =
         
         match (horizontal) with
         | true ->
-            printfn $"Trying horizontal:"
-            let wordListBeforeGC_Coordinates = List.mapi (fun i e ->(((gcX-i-1), gcY), e)) (wordListBeforeGC)
-            let wordListAfterGC_Coordinates = List.mapi (fun i e ->(((gcX+i+1), gcY), e)) wordListAfterGC
-            printfn $"List before given coordinate {wordListBeforeGC_Coordinates} and after {wordListAfterGC_Coordinates}"
+                printfn $"Trying horizontal:"
+                let wordListBeforeGC_Coordinates = List.mapi (fun i e ->(((gcX-i-1), gcY), e)) (wordListBeforeGC)
+                let wordListAfterGC_Coordinates = List.mapi (fun i e ->(((gcX+i+1), gcY), e)) wordListAfterGC
+                printfn $"List before given coordinate {wordListBeforeGC_Coordinates} and after {wordListAfterGC_Coordinates}"
 
-            let (word) = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
-            
-            let isAnyTilesDisturbing =
-                List.fold
-                  (fun acc e ->
-                    match acc with
-                    | Some v ->
-                        printfn $"The tile before {e} is reserved by another tile."
-                        acc
-                    | None -> printfn $"is tile occupied {(isTileOccupied (fst e) st).ToString}  with coods { (fst e)}, where x coord { fst(fst e)} and with y coord {snd(fst e)}"
-                              match (isTileOccupied (fst e) st) with
+                let (word) = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates 
+                
+                (*let tileBeforeWord = fst (fst wordListBeforeGC_Coordinates[0])-1 , snd(fst wordListBeforeGC_Coordinates[0])
+                let tileAfterWord = fst (fst wordListAfterGC_Coordinates[wordListAfterGC_Coordinates.Length])+1 , snd(fst wordListAfterGC_Coordinates[wordListAfterGC_Coordinates.Length])
+                
+                let checkBeforeWord = isTileOccupied (tileBeforeWord) st
+                let checkAfterWord = isTileOccupied (tileAfterWord) st
+                
+                if (checkAfterWord <> None || checkBeforeWord <> None)
+                then printfn $"failed"
+                     StateMonad.Failure []
+                else     *) //Endless loop here idk why
+                let isAnyTilesDisturbing =
+                    List.fold
+                      (fun acc e ->
+                        match acc with
+                        | Some v ->
+                            printfn $"The tile before {e} is reserved by another tile."
+                            acc
+                        | None -> match (isTileOccupied (fst e) st) with
+                                  | Some v -> acc //mayby no 
+                                  | None -> printfn $"checking with coords { (fst e)}, where x coord { fst(fst e)} and with y coord {snd(fst e)-1}"
+                                  
+                                            match (isTileOccupied (fst(fst e), snd(fst e)-1) st) with
+                                            | Some v -> acc 
+                                            | None ->
+                                                        printfn $"checking with coords { (fst e)}, where x coord { fst(fst e)} and with y coord {snd(fst e)+1}"
+                                                        (isTileOccupied (fst(fst e), snd(fst e)+1) st)
+                                    
+                    ) None word //up down 
+                
+                match isAnyTilesDisturbing with
+                | None ->
+                    printfn $"The word {word} can be placed on board."
+                    StateMonad.Success word
+                | _     ->
+                           match (vertical) with
+                            |true -> 
+                                printfn $"Trying vertical:"
+                                let wordListBeforeGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY-i-1)), e)) (List.rev wordListBeforeGC)
+                                let wordListAfterGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY+i+1)), e)) wordListAfterGC
+                                printfn $"List before given coordinate {wordListBeforeGC_Coordinates} and after {wordListAfterGC_Coordinates}"
                                 
-                              | Some v -> acc //mayby no 
-                              | None ->
-                                    printfn $"is tile occupied up {(isTileOccupied (fst e) st).ToString} with coods {(fst(fst e), snd(fst e)-1)}"
-                                    match (isTileOccupied (fst(fst e), snd(fst e)-1) st) with
-                                    | Some v -> acc 
-                                    | None -> (isTileOccupied (fst(fst e), snd(fst e)+1) st)
+                                let word = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
                                 
-                ) None word //up down 
+                                let tileBeforeWord = fst (fst wordListBeforeGC_Coordinates[0]) , snd(fst wordListBeforeGC_Coordinates[0])-1
+                                let tileAfterWord = fst (fst wordListAfterGC_Coordinates[wordListAfterGC_Coordinates.Length]) , snd(fst wordListAfterGC_Coordinates[wordListAfterGC_Coordinates.Length])+1
             
-            match isAnyTilesDisturbing with
-            | None ->
-                printfn $"The word {word} can be placed on board."
-                StateMonad.Success word
-            | _     -> StateMonad.Failure word
-            
+                                let checkBeforeWord = isTileOccupied (tileBeforeWord) st
+                                let checkAfterWord = isTileOccupied (tileAfterWord) st
+                                
+                                if (checkAfterWord <> None || checkBeforeWord <> None)
+                                then printfn $"failed"
+                                     StateMonad.Failure []
+                                else     
+                                let isAnyTilesDisturbing =
+                                    List.fold
+                                      (fun acc e -> 
+                                        match acc with
+                                        | Some v ->
+                                            printfn $"The tile before {e} is reserved by another tile."
+                                            acc
+                                        | None -> match (isTileOccupied (fst e) st) with
+                                                  | Some v -> acc 
+                                                  | None -> match (isTileOccupied (fst(fst e)-1, snd(fst e)) st) with
+                                                            | Some v -> acc 
+                                                            | None -> (isTileOccupied (fst(fst e)+1, snd(fst e)) st)
+                                                    
+                                    ) None word //left right 
+                                match isAnyTilesDisturbing with
+                                | None ->
+                                    printfn $"The word {word} can be placed on board."
+                                    StateMonad.Success word
+                                | _     -> StateMonad.Failure word
+                            | false ->
+                                printfn $"failed"
+                                StateMonad.Failure [] //Not possible to plave the word
+                
         | false ->
             match (vertical) with
             |true -> 
@@ -291,9 +338,23 @@ module Scrabble =
                 
                 let word = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
                 
+                printfn $"Word {word}"
+                
+                (*let tileBeforeWord = fst (fst wordListBeforeGC_Coordinates[0]) , snd(fst wordListBeforeGC_Coordinates[0])-1
+                let tileAfterWord = fst (fst wordListAfterGC_Coordinates[wordListAfterGC_Coordinates.Length]) , snd(fst wordListAfterGC_Coordinates[wordListAfterGC_Coordinates.Length])+1
+                
+                printfn $"tileBeforeWord {tileBeforeWord}, and tileAftereWord {tileAfterWord}"
+                
+                let checkBeforeWord = isTileOccupied (tileBeforeWord) st
+                let checkAfterWord = isTileOccupied (tileAfterWord) st
+                
+                if (checkAfterWord <> None || checkBeforeWord <> None)
+                then printfn $"failed"
+                     StateMonad.Failure []
+                else *) //This givesa enddless loop idk why    
                 let isAnyTilesDisturbing =
                     List.fold
-                      (fun acc e ->
+                      (fun acc e -> 
                         match acc with
                         | Some v ->
                             printfn $"The tile before {e} is reserved by another tile."
@@ -301,8 +362,8 @@ module Scrabble =
                         | None -> match (isTileOccupied (fst e) st) with
                                   | Some v -> acc 
                                   | None -> match (isTileOccupied (fst(fst e)-1, snd(fst e)) st) with
-                                        | Some v -> acc 
-                                        | None -> (isTileOccupied (fst(fst e)+1, snd(fst e)) st)
+                                            | Some v -> acc 
+                                            | None -> (isTileOccupied (fst(fst e)+1, snd(fst e)) st)
                                     
                     ) None word //left right 
                 match isAnyTilesDisturbing with
@@ -341,9 +402,9 @@ module Scrabble =
              let givenChars = List.rev <| Map.toList st.boardTiles
              
              let rec aux (ws : letter list list) (gcCoords : coord) (givenChar : letter) =
-                 printfn $"Given char in aux {givenChar}"
-                 printfn $"Given gccoords before stuff {gcCoords}"
-                 printfn $"print ws before stuff {ws}"
+                 //printfn $"Given char in aux {givenChar}"
+                 //printfn $"Given gccoords before stuff {gcCoords}"
+                 //printfn $"print ws before stuff {ws}"
                  match ws with
                  | x::xs    ->
                      printfn $"findMove : Board is NOT empty"
@@ -351,7 +412,7 @@ module Scrabble =
                      | StateMonad.Success v    ->
                          printfn $"findMove: not empty board : returning word {v}"
                          v
-                     | StateMonad.Failure _     -> aux xs gcCoords givenChar
+                     | StateMonad.Failure v     -> aux xs gcCoords givenChar
                  | []       -> []
              
              let rec miniAux (givenChars : (coord * (char * uint32)) list ) (pieces:Map<uint32,tile>) =
@@ -366,10 +427,7 @@ module Scrabble =
                      printfn $"Mie find letter {letter}"
                      printfn $"Mie find hand {hand }"
                      let words = findWordOnTile letter hand st.dict
-                     printfn $"Mie Find Words {words[0]}"
-                     let l = List.rev givenChars
-                     
-                    
+                     //printfn $"Mie Find Words {words[0]}"
                      
                      let l = List.rev givenChars
                      if words.IsEmpty
@@ -413,9 +471,17 @@ module Scrabble =
             let makeMovePlayable (w : word) =
                 let newTile s : (char * int) = (Set.toList (snd s)).Head
                 List.map (fun e -> (fst e, (fst (snd e),(newTile (snd e))) )) w
+         
+            let goThroughHand =
+                let hands = List.map (fun x -> x :: newHand.Tail) newHand
+                List.fold (fun acc hand -> findMove hand st pieces :: acc) [] hands
+            
+            let result = List.sortByDescending (List.length) goThroughHand
+            
+            printfn $"all results {result}"
             
             //It all starts here :)
-            let foundWord = findMove newHand st pieces
+            let foundWord = result[0]
             
             match foundWord with
             | x::xs ->
@@ -454,7 +520,8 @@ module Scrabble =
                 let movedTiles = ofList tilesToChange
                 let handWithoutMovedTiles = subtract st.hand movedTiles 
                 let newHand = List.fold (fun acc (a, times) -> add a times acc) handWithoutMovedTiles newPieces
-                let st' = State.mkState st.board st.dict st.playerNumber newHand st.bag  st.boardTiles//hvis der er problem med at der mangler brikker så er det nok her der skal fixes noget
+                let switchUpBoardTiles = Map.ofList <| (List.rev <| Map.toList st.boardTiles)
+                let st' = State.mkState st.board st.dict st.playerNumber newHand st.bag  switchUpBoardTiles//hvis der er problem med at der mangler brikker så er det nok her der skal fixes noget
                 aux st'
                 
             | RCM (CMPlayed (pid, ms, points)) -> // not relevant : since we do not offer multiplayer
