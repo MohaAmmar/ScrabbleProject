@@ -87,10 +87,15 @@ module Scrabble =
     //let charsOnHandNoPoints pieces (st : State.state) = List.map (fun (x : tile) -> fst (x.MinimumElement)) (charsOnHand pieces st)
         
     // if the list returns the a list of false then there are no tiles reserving the coordinates on the board
-    let checkReservedCoordPlacement (c : coord) (boardTiles : Map<coord, (char*uint32)>) : char option  =
+    (*let checkReservedCoordPlacement (c : coord) (boardTiles : Map<coord, (char*uint32)>) : char option  =
         match (boardTiles.TryFind c) with
             | Some (c,_)    -> Some c
-            | None      -> None
+            | None      -> None*)
+    
+    let isTileOccupied (c: coord) (st: State.state) = //maybe this should be bool?
+        match st.boardTiles.TryFind c with
+        | Some v    -> Some v
+        | None      -> None
         
     let extractCharFromLetter (l : letter) : char list =
         let temp = snd l
@@ -203,27 +208,23 @@ module Scrabble =
                                 else
                                     let t = acc[acc.Length-1]
                                     if (((List.length acc)-1) > i)
-                                    then 
+                                    then
                                         //printfn $"We remove {t} from acc"
                                         let newAcc = List.removeAt (acc.Length-1) acc
                                         //printfn $"newAcc : {newAcc}"
                                         aux (t::beenChecked) h prevD prevD newAcc i listOfWords
                                     else
-                                        //printfn $"No word can be put with given char {givenChar} at index {i}. Index has been incremented."
-                                        aux [] (h@beenChecked@acc) dict dict [] (i+1) listOfWords
+                                        if i < 8 then
+                                            printfn $"We loop here with char {givenChar} at index {i}"
+                                            //printfn $"No word can be put with given char {givenChar} at index {i}. Index has been incremented."
+                                            aux [] (h@beenChecked@acc) dict dict [] (i+1) listOfWords
+                                        else  aux [] xs d prevD acc i listOfWords
                             else
                                 //printfn $"Found None : {x} has been added to checked letters."
                                 aux (x::beenChecked) xs d prevD acc i listOfWords
                    
         aux [] hand dict dict [] 0 []
-    
-    
-
-    
-    let isTileOccupied (c: coord) (st: State.state) = //maybe this should be bool?
-        match st.boardTiles.TryFind c with
-        | Some v    -> Some v
-        | None      -> None
+   
         
     let findCoordsForWord (w : letter list) (gcCoords : coord) (givenChar : letter) (st : State.state) : StateMonad.Result<'a, word> =
         printfn $"\nFinding coordinates for word : {w}"
@@ -320,7 +321,7 @@ module Scrabble =
             List.fold (fun acc e ->
                 match acc with
                 | Some v -> acc
-                | None -> (checkReservedCoordPlacement (fst e) st.boardTiles)) None wl
+                | None -> (isTileOccupied (fst e) st)) None wl
         match b with
             | None -> StateMonad.Success wl
             | _     -> StateMonad.Failure wl
