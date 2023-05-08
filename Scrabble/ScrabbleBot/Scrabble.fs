@@ -291,13 +291,11 @@ module Scrabble =
             
 
     let idToTile (pieces:Map<uint32,tile>) (hand : MultiSet<uint32>) : letter list =
-        printfn "idToTile : finding letters from their id"
         fold (fun (acc: letter list) (i : uint32) _ -> (i, (Map.find i pieces))::acc) [] hand
 
     let playGame cstream (pieces:Map<uint32,tile>) (state : State.state) =
 
         let changeTiles (state : State.state) =
-                printfn $"Changing tiles"
                 let hand = toList state.hand
                 if state.bag >= 7u
                 then hand
@@ -311,20 +309,16 @@ module Scrabble =
         let rec aux (st : State.state) =
             Print.printHand pieces (State.hand st)
             
-            debugPrint $"charsOnHand : %A{charsOnHand pieces st} \n"
             let newHand = idToTile pieces st.hand
-            printfn $"New hand : {newHand}"
             
             let foundWords =
                 if st.prevFoundWordsWithThisHand
                 then
-                    //printfn $"st.prevFoundWordsWithThisHand is true, st.myFoundWords is {st.myFoundWords}"
                     st.myFoundWords
                 else
                     let result = List.sortByDescending List.length (findMove newHand st)
                     let notEmpty (x : 'a list) = not x.IsEmpty
                     let res = result |> List.filter (notEmpty)
-                    printfn $"st.prevFoundWordsWithThisHand is false, found results {res}"
                     res
  
             if ((size st.hand) < 7u) || (st.bag < 7u)
@@ -337,7 +331,6 @@ module Scrabble =
                         |[] -> send cstream (SMPass)
                         | _ -> send cstream (SMChange cT)
                 | x::_ ->
-                    printfn $"Sending word to server : {x}"
                     send cstream (SMPlay (makeMovePlayable x))
             
             let st =
@@ -347,7 +340,6 @@ module Scrabble =
             
             //Console.ReadLine()
             let msg = recv cstream
-            //debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
 
             match msg with
             | RCM (CMPlaySuccess(ms, _, newPieces)) ->
@@ -356,22 +348,19 @@ module Scrabble =
                     List.fold (fun acc (coord, (u32, (ch, _))) ->
                     Map.add coord (ch, u32) acc
                     ) Map.empty m
-                let movedTiles = ofList (List.fold (fun acc ls -> (fst (snd ls))::acc) [] ms)
-                printfn $"movedTileOnBoard before adding them to BT {movedTileOnBoard ms}"    
+                let movedTiles = ofList (List.fold (fun acc ls -> (fst (snd ls))::acc) [] ms)  
                 let handWithoutMovedTiles = subtract st.hand movedTiles
                 let newHand = List.fold (fun acc (a, times) -> add a times acc) handWithoutMovedTiles newPieces
                 let newBag = st.bag - uint32(List.length newPieces) 
                 
                 let newBT = Map.fold (fun i k v -> Map.add k v i ) st.boardTiles (movedTileOnBoard ms)
-                let switchUpBoardTiles = Map.ofList <| (List.rev <| Map.toList newBT)
-                printfn $"New Board Tiles {newBT}"    
+                let switchUpBoardTiles = Map.ofList <| (List.rev <| Map.toList newBT)  
 
                 let st' = State.mkState st.board st.dict st.playerNumber newHand newBag switchUpBoardTiles false []
 
                 aux st'
                 
             | RCM (CMChangeSuccess(newPieces)) ->
-                printfn $"New Piecies {newPieces}"
                 let newHand = List.fold (fun acc (a, times) -> add a times acc) empty newPieces
                 let switchUpBoardTiles = Map.ofList <| (List.rev <| Map.toList st.boardTiles)
                 let st' = State.mkState st.board st.dict st.playerNumber newHand (st.bag-(uint32 (newPieces.Length))) switchUpBoardTiles false []
@@ -383,7 +372,6 @@ module Scrabble =
                 
                 aux st'
             | RCM (CMPlayFailed _) ->
-                printfn $"changing prevFoundWordWithThisHand to true"
                 let st' = State.mkState st.board st.dict st.playerNumber st.hand st.bag st.boardTiles true st.myFoundWords.Tail
                 aux st'
 
