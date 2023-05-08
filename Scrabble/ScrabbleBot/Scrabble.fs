@@ -108,9 +108,6 @@ module Scrabble =
     
     let tryFirstWord (hand : letter list) dicti : letter list =
         let rec aux (unusedHand : letter list) (beenChecked : letter list) dict (acc : letter list) =
-            //printfn $"beenChecked : {beenChecked}"
-            //printfn $"Hand : {unusedHand}"
-            //printfn $"Acc : {acc}"
             match unusedHand with
             | [] -> []
             | x::xs ->
@@ -118,13 +115,11 @@ module Scrabble =
                 match Dictionary.step c[0] dict with
                 | Some (false, newDict) ->
                     let newAcc = acc@[x]
-                    //printfn $"Acc : {newAcc}"
                     aux ((xs)@beenChecked) [] newDict newAcc
                 | Some (true, newDict) ->
                     let newAcc = acc@[x]
                     if (((List.length newAcc % 2) = 1) && (List.length newAcc > 1) )
                     then
-                        printfn $"FOUND WORD: returning : {newAcc}"
                         newAcc
                     else aux ((xs)@beenChecked) [] newDict newAcc    
                 | None ->
@@ -132,7 +127,6 @@ module Scrabble =
                     | []    ->
                         aux (unusedHand@beenChecked@acc) [] dict []
                     | x::xs ->
-                        //printfn $"Found None : {x} has been added to checked letters."
                         aux xs (x::beenChecked) dict acc
         aux hand [] dicti []
     
@@ -164,7 +158,6 @@ module Scrabble =
                 else 
                    match h with
                     | []        ->
-                        //printfn $"Hand is empty, returning listOfWords: {listOfWords}"
                         listOfWords
                     | x::xs     ->
                         let c = extractCharFromLetter x
@@ -174,19 +167,16 @@ module Scrabble =
                          of the hand, we keep it at the same index since we doesn't
                          want to affect it's placement in the word here*)
                         | Some (false, nd)  ->
-                            //printfn $"Some (false, nd) : {(acc@[x])}"
                             aux [] (xs@beenChecked) nd (acc@[x]) i listOfWords
                             
                         | Some (true, nd)   ->
                             if ((List.length acc) > i)
                             then
                                 let fWord = acc@[x]
-                                //printfn $"FOUND WORD : {fWord}"
                                 let newlist = fWord::listOfWords
                                 aux [] (xs@beenChecked) nd fWord i newlist 
                             else
                                 let fWord = acc@[x]
-                                //printfn $"Found word : {fWord}, but does not contain given letter"
                                 aux [] (xs@beenChecked) nd fWord i listOfWords
                                 
                         | None              ->
@@ -196,11 +186,8 @@ module Scrabble =
                                 then aux [] (h@beenChecked@acc) dict [] (i+1) listOfWords
                                 else 
                                     let accWithoutGC = List.removeAt i acc
-                                    //printfn $"No word can be put with given char {givenChar} at index {i}. Index has been incremented."
-                                    //listOfWords
                                     aux [] (h@beenChecked@accWithoutGC) dict [] (i+1) listOfWords
                             | x::xs ->
-                                //printfn $"Found None : {x} has been added to checked letters."
                                 aux (x::beenChecked) xs d acc i listOfWords        
         aux [] hand dict [] 0 []
                 
@@ -209,7 +196,6 @@ module Scrabble =
         
         let givenCharChar = fst (Set.minElement (snd givenChar))
         let position = List.findIndex (fun x -> givenCharChar = fst (Set.minElement (snd x)) ) w
-        //printfn $"Given Char {givenCharChar} is at position {position} on coordinates ({gcX}, {gcY})"
         
         let wordListBeforeGC    = w[0..position-1]
         let wordListAfterGC     = w[position+1..]
@@ -220,17 +206,14 @@ module Scrabble =
         let up = (notReservedCoordPlacement (gcX, gcY-1) st.boardTiles)
         let down = (notReservedCoordPlacement (gcX, gcY+1) st.boardTiles)
         
-        //printfn $"FINDING COORDS FOR WORD: Left {left}, right {right}, up {up}, down {down}."
         
         let horizontal = (left&&right)
         let vertical = (up&&down)
         
         match horizontal with
         | true ->
-            printfn $"Trying horizontal:"
             let wordListBeforeGC_Coordinates = List.mapi (fun i e ->(((gcX-i-1), gcY), e)) wordListBeforeGC
             let wordListAfterGC_Coordinates = List.mapi (fun i e ->(((gcX+i+1), gcY), e)) wordListAfterGC
-            //printfn $"List before given coordinate {wordListBeforeGC_Coordinates} and after {wordListAfterGC_Coordinates}"
 
             let word = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates 
             
@@ -256,10 +239,8 @@ module Scrabble =
         | false ->
             match vertical with
             |true -> 
-                printfn $"Trying vertical:"
                 let wordListBeforeGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY-i-1)), e)) (List.rev wordListBeforeGC)
                 let wordListAfterGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY+i+1)), e)) wordListAfterGC
-                //printfn $"List before given coordinate {wordListBeforeGC_Coordinates} and after {wordListAfterGC_Coordinates}"
                 
                 let word = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
                 
@@ -294,8 +275,6 @@ module Scrabble =
              List.fold (fun acc e -> (findCoordsForFirstWord e st)::acc) [] words
         | false ->
             let givenChars = Map.toList st.boardTiles
-            //printfn "GIVENCHARS"
-            //for i in givenChars do printfn "%A" i
             let aux (ws : letter list list) (gcCoords : coord) (givenChar : letter) (acc : word list) =
                  List.fold (fun acc e ->
                      match (findCoordsForWord e gcCoords givenChar st) with

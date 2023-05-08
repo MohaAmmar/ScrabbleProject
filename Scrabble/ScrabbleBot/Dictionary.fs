@@ -35,17 +35,9 @@ let lookup (word : string) (tree : Trie) =
     
 let step (c : char) (tree : Trie) =
     match tree with
-        | Node (_, tree') when Map.containsKey c tree' -> 
-            let t = (Map.find c tree')
-            match t with
-            | Leaf b -> Some (b, t)
-            | Node (b,_) -> Some (b, t)
-        | Leaf _ -> None
-        | _ -> None
-    (*match tree with
     | Leaf _        -> None
     | Node (b, m)   ->
-        match (m.TryFind character) with
+        match (m.TryFind c) with
         | Some v        -> Some (b, v)
-        | None          -> None*)
+        | None          -> None
         
