@@ -33,11 +33,11 @@ let lookup (word : string) (tree : Trie) =
             | None      -> false
     look word tree
     
-let step (character : char) (tree : Trie) =
+let step (c : char) (tree : Trie) =
     match tree with
     | Leaf _        -> None
     | Node (b, m)   ->
-        match (m.TryFind character) with
+        match (m.TryFind c) with
         | Some v        -> Some (b, v)
         | None          -> None
         
