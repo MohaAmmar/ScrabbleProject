@@ -9,6 +9,7 @@ open System.IO
 
 open ScrabbleUtil.DebugPrint
 open MultiSet
+
 // The RegEx module is only used to parse human input. It is not used for the final product.
 
 module RegEx =
@@ -53,6 +54,7 @@ module State =
     // Currently, it only keeps track of your hand, your player numer, your board, and your dictionary,
     // but it could, potentially, keep track of other useful
     // information, such as number of players, player turn, etc.
+    
 
     type state = {
         board         : Parser.board
@@ -75,46 +77,102 @@ module State =
     let boardTile st = st.boardTiles
 
 module Scrabble =
-    open System.Threading
-    
+    type direction =
+        | Right
+        | Left
+        | Up
+        | Down
+        | Center
+        
     type coord = (int * int)
     type letter = uint32 * tile
-    type my_tile = coord * (uint32 * (char * int)) // coord * (id * (char * point))
     type word = (coord * letter) list
     
-        
-    let charsOnHand pieces (st : State.state) = List.map (fun id -> Map.find id pieces) (MultiSet.toList st.hand)
-    //let charsOnHandNoPoints pieces (st : State.state) = List.map (fun (x : tile) -> fst (x.MinimumElement)) (charsOnHand pieces st)
-        
-    // if the list returns the a list of false then there are no tiles reserving the coordinates on the board
-    (*let checkReservedCoordPlacement (c : coord) (boardTiles : Map<coord, (char*uint32)>) : char option  =
-        match (boardTiles.TryFind c) with
-            | Some (c,_)    -> Some c
-            | None      -> None*)
+    //------------------------------------Board Helper Methods------------------------------------
+    let getNextCoord (x,y) d =
+        match d with
+        | Right -> (x+1, y)
+        | Left-> (x-1, y)
+        | Up -> (x, y-1)
+        | Down -> (x, y+1)
+        | Center -> (x, y)
     
-    let isTileOccupied (c: coord) (st: State.state) = //maybe this should be bool?
-        match st.boardTiles.TryFind c with
-        | Some v    -> Some v
-        | None      -> None
+    let isTileOccupied d x y (st: State.state) =
+         Map.containsKey (getNextCoord (x,y) d) st.boardTiles 
+         
+    let isTilesAroundOccupied d x y (st: State.state) =
+        match d with
+            | dv when (dv = Down || dv = Up) ->
+                match isTileOccupied Center x y st with
+                | true -> true
+                | false -> match isTileOccupied Left x y st with
+                            | true -> true
+                            | false -> match isTileOccupied Right x y st with
+                                       | true -> true
+                                       | false -> false
+                                                                                        
+            | dh when (dh = Left || dh = Right) ->
+                match isTileOccupied Center x y st with
+                |true -> true
+                | false ->match isTileOccupied Up x y st with
+                             | true -> true
+                             | false -> match isTileOccupied Down x y st with
+                                        | true -> true
+                                        | false -> false
+                                        
         
+    
+    //------------------------------------Hand Helper Methods------------------------------------
+    let charsOnHand pieces (st : State.state) = List.map (fun id -> Map.find id pieces) (MultiSet.toList st.hand)
+    
     let extractCharFromLetter (l : letter) : char list =
         let temp = snd l
         Set.fold (fun acc e -> (fst e)::acc) [] temp
     
-    let tryFirstWord (hand : letter list) dicti st : letter list =
-        //Only finds all the words starting with the letter hand.[0]
+    let idToTile (pieces:Map<uint32,tile>) (hand : MultiSet<uint32>) : letter list =
+        MultiSet.fold (fun (acc: letter list) (i : uint32) _ -> (i, (Map.find i pieces))::acc) [] hand
+    
+    let containsWildCard (hand :  MultiSet<uint32>) : bool = List.exists (fun x -> x = 0u) (toList hand)
+    
+    
+    //------------------------------------Finding Coords Helper Methods------------------------------------
+    let findCoordsForFirstWord (w : letter list) (st : State.state) =
+        let x, y = st.board.center
+        let wl = List.mapi (fun i e ->(x+i, y), e) w
+        wl
+    
+    let findCoordsForWord (w : letter list) (gcCoords : coord) (givenLetter : letter) (st : State.state) (d:direction) : word=
+        let gcX, gcY = gcCoords
+        let givenChar = fst (Set.minElement (snd givenLetter))
+        let position = List.findIndex (fun x -> givenChar = fst (Set.minElement (snd x)) ) w
+        printfn $"Given Char {givenChar} is at position {position} on coordinates ({gcX}, {gcY})"
+        
+        let wordListBeforeGC    = w[0..position-1]
+        let wordListAfterGC     = w[position+1..]
+        
+        if (d = Down || d = Up)
+        then
+            let wordListBeforeGC_Coordinates = List.mapi (fun i e -> ((gcX, (gcY-i-1)), e))(List.rev wordListBeforeGC)
+            let wordListAfterGC_Coordinates = List.mapi (fun i e -> ((gcX, (gcY+i+1)), e)) wordListAfterGC
+            let word = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
+            word
+        else 
+            let wordListBeforeGC_Coordinates = List.mapi (fun i e -> (((gcX-i-1), gcY), e))(wordListBeforeGC)
+            let wordListAfterGC_Coordinates = List.mapi (fun i e -> (((gcX+i+1), gcY), e)) wordListAfterGC
+            let word = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
+            word
+        
+    //------------------------------------Finding Words Helper Methods------------------------------------
+   
+    let tryFirstWord (hand : letter list) dicti : letter list =
         let rec aux (unusedHand : letter list) (beenChecked : letter list) dict (acc : letter list) =
-            //printfn $"beenChecked : {beenChecked}"
-            //printfn $"Hand : {unusedHand}"
-            //printfn $"Acc : {acc}"
             match unusedHand with
             | [] -> []
             | x::xs ->
                 let c = extractCharFromLetter x
-                match Dictionary.step c.[0] dict with //todo : joker is always a rn
+                match Dictionary.step c[0] dict with
                 | Some (false, newDict) ->
                     let newAcc = acc@[x]
-                    //printfn $"Acc : {newAcc}"
                     aux ((xs)@beenChecked) [] newDict newAcc
                 | Some (true, newDict) ->
                     let newAcc = acc@[x]
@@ -122,375 +180,156 @@ module Scrabble =
                     then
                         printfn $"FOUND WORD: returning : {newAcc}"
                         newAcc
-                    else aux ((xs)@beenChecked) [] newDict (newAcc)    
+                    else aux ((xs)@beenChecked) [] newDict newAcc    
                 | None ->
-                    if xs.IsEmpty
-                    then
-                        if (acc.IsEmpty)
-                        then []
-                        else
-                            let t = acc[acc.Length-1]
-                            //printfn $"We remove {t} from acc"
-                            let newAcc = List.removeAt (acc.Length-1) acc
-                            //printfn $"newAcc : {newAcc}"
-                            aux (unusedHand@beenChecked) [t] dict newAcc
-                    else aux (xs) (x::beenChecked) dict acc
+                    match xs with
+                    | []    ->
+                        aux (unusedHand@beenChecked@acc) [] dict []
+                    | x::xs ->
+                        printfn $"Found None : {x} has been added to checked letters."
+                        aux xs (x::beenChecked) dict acc
         aux hand [] dicti []
+
     
-    let rec findFirstWord (hand : letter list) dicti st : letter list =
-        let rec aux i hand dicti st=
-            let res = tryFirstWord hand dicti st
-            match res with
-            | [] -> if i < List.length hand 
-                    then aux (i+1) (hand.Tail@[hand.Head]) dicti st
-                    else []
-            | _ -> res
-        aux 1 hand dicti st
-    
-    (*let stepIntoDict givenChar d acc listOfWords=
-        let gc = extractCharFromLetter givenChar
-        match Dictionary.step gc.[0] d with
-        | Some (false, nd)  ->
-            aux [] (h@beenChecked) nd d (acc@[givenChar]) i listOfWords
-        | Some (true, nd)   ->
-            let fWord = acc@[givenChar]
-            aux [] (h@beenChecked) nd d fWord i fWord::listOfWords 
-        | None              ->
-           listOfWords*)
+    let rec findFirstWord (hand : letter list) (st:State.state) : letter list list =
+        let res = hand |> List.mapi (fun i e ->
+            let h = hand[i]::(hand[..(i-1)]@hand[(i+1)..])
+            (tryFirstWord h st.dict)
+            ) 
+        res
         
-    
-    let findWordOnTile (givenChar : letter) (hand : letter list) dict : (letter list) list =
-        //let rec aux (beenChecked : letter list) (h : letter list) d prevD (acc : letter list) i (listOfWords : (letter list) list): (letter list) list =
-        let rec aux (beenChecked : letter list) (h : letter list) d (acc : letter list) i (listOfWords : (letter list) list): (letter list) list =
-            if (i > 8 || (h.IsEmpty && beenChecked.IsEmpty ))
+    let findWordOnTile dir x y (givenChar : letter) (hand : letter list) (st: State.state) (direction:direction) : letter list list =
+        
+        let rec aux dir (x,y) (beenChecked : letter list) (h : letter list) d (acc : letter list) i (listOfWords : letter list list) : letter list list =
+            if (i > (h.Length+1))
             then listOfWords
             else
-                 (*if the size of the list hits the index of where we should try to put the tile
-                 then the given tile char is added to our acc and we try to test the rest of the hand on it *)
                 if ((List.length acc) = i)
+                //------------Using Tile on Board-----------
                 then
                     let gc = extractCharFromLetter givenChar
-                    match Dictionary.step gc.[0] d with
-                    | Some (false, nd)  ->
-                        aux [] (h@beenChecked) nd (acc@[givenChar]) i listOfWords
-                    | Some (true, nd)   ->
+                    match Dictionary.step gc[0] d with
+                    | Some (true, nd) when not (isTilesAroundOccupied dir x y st ) ->
                         let fWord = acc@[givenChar]
-                        aux [] (h@beenChecked) nd fWord i (fWord::listOfWords) 
-                    | None              ->
-                       aux [] (h@beenChecked@acc) dict [] (i+1) listOfWords
+                        aux dir (getNextCoord(x,y) dir) [] (h@beenChecked) nd fWord i (fWord::listOfWords) 
+                    | Some (false, nd) ->
+                        aux dir (getNextCoord(x,y) dir) [] (h@beenChecked) nd (acc@[givenChar]) i listOfWords
+                    | None              -> listOfWords
+                       //aux dir (getNextCoord(x,y) dir) [] (h@beenChecked@acc) st.dict [] (i+1) listOfWords
+                //------------Using Tiles on Hand------------
                 else 
                    match h with
                     | []        ->
                         printfn $"Hand is empty, returning listOfWords: {listOfWords}"
                         listOfWords
-                    | x::xs     ->
-                        let c = extractCharFromLetter x
-                        match Dictionary.step c.[0] d with
-                        (* there is a subtrie but it is not the end of the word
-                         so we add the given char to the acc and tries the rest
-                         of the hand, we keep it at the same index since we doesn't
-                         want to affect it's placement in the word here*)
+                    | x1::xs     ->
+                        let c = extractCharFromLetter x1
+                        match Dictionary.step c[0] d with
                         | Some (false, nd)  ->
-                            printfn $"Some (false, nd) : {(acc@[x])}"
-                            aux [] (xs@beenChecked) nd (acc@[x]) i listOfWords
-                            
+                            aux  dir (getNextCoord(x,y) dir) [] (xs@beenChecked) nd (acc@[x1]) i listOfWords
                         | Some (true, nd)   ->
                             if ((List.length acc) > i)
                             then
-                                let fWord = acc@[x]
+                                let fWord = acc@[x1]
                                 printfn $"FOUND WORD : {fWord}"
                                 let newlist = fWord::listOfWords
-                                aux beenChecked xs nd fWord i newlist
+                                aux  dir (getNextCoord(x,y) dir) [] (xs@beenChecked)
+                                    nd fWord i newlist 
                             else
-                                let fWord = acc@[x]
-                                printfn $"Found word : {fWord}, but does not contain given letter"
-                                aux (x::beenChecked) xs d acc i listOfWords
+                                let fWord = acc@[x1]
+                                aux  dir (getNextCoord(x,y) dir) [] (xs@beenChecked) nd fWord i listOfWords
                                 
-                                //aux [] (xs@beenChecked) nd fWord i listOfWords
                         | None              ->
                             match xs with
                             | []    ->
                                 let accWithoutGC = List.removeAt i acc
-                                printfn $"No word can be put with given char {givenChar} at index {i}. Index has been incremented."
-                                listOfWords
-                                //aux [] (h@beenChecked@accWithoutGC) dict [] (i+1) listOfWords
-                            | x::xs ->
-                                printfn $"Found None : {x} has been added to checked letters."
-                                aux (x::beenChecked) xs d acc i listOfWords        
-                    
-        aux [] hand dict [] 0 []
-        
+                                aux  dir (getNextCoord(x,y) dir) [] (h@beenChecked@accWithoutGC) st.dict [] (i+1) listOfWords
+                            | x1::xs ->
+                                aux  dir (getNextCoord(x,y) dir) (x1::beenChecked) xs d acc i listOfWords        
+        aux dir (getNextCoord(x,y) dir) [] hand st.dict [] 0 []
    
         
-    let findCoordsForWord (w : letter list) (gcCoords : coord) (givenChar : letter) (st : State.state) : StateMonad.Result<'a, word> =
-        printfn $"\nFinding coordinates for word : {w}"
-        let gcX, gcY = gcCoords
-        printfn $"gcX, gcY : {gcX}, {gcY}"
-        printfn $"wordlist before stuff : {w}"
-        let givenCharChar = fst (Set.minElement (snd givenChar))
-        let position = List.findIndex (fun x -> givenCharChar = fst (Set.minElement (snd x)) ) w
-        printfn $"Given Char {givenCharChar} is at position {position} on coordinates ({gcX}, {gcY})"
-        
-        let wordListBeforeGC    = w[0..position-1]
-        let wordListAfterGC     = w[position+1..]
-        
-        let left = (isTileOccupied (gcX-1, gcY) st).IsNone
-        let right = (isTileOccupied (gcX+1, gcY) st).IsNone
-        
-        let up = (isTileOccupied (gcX, gcY-1) st).IsNone
-        let down = (isTileOccupied (gcX, gcY+1) st).IsNone
-        
-        let horizontal = (left&&right)
-        let vertical = (up&&down)
-        
-        match (horizontal) with
-        | true ->
-                printfn $"Trying horizontal:"
-                let wordListBeforeGC_Coordinates = List.mapi (fun i e ->(((gcX-i-1), gcY), e)) (wordListBeforeGC)
-                let wordListAfterGC_Coordinates = List.mapi (fun i e ->(((gcX+i+1), gcY), e)) wordListAfterGC
-                printfn $"List before given coordinate {wordListBeforeGC_Coordinates} and after {wordListAfterGC_Coordinates}"
-
-                let (word) = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates 
-                
-                (*let tileBeforeWord = fst (fst wordListBeforeGC_Coordinates[0])-1 , snd(fst wordListBeforeGC_Coordinates[0])
-                let tileAfterWord = fst (fst wordListAfterGC_Coordinates[wordListAfterGC_Coordinates.Length])+1 , snd(fst wordListAfterGC_Coordinates[wordListAfterGC_Coordinates.Length])
-                
-                let checkBeforeWord = isTileOccupied (tileBeforeWord) st
-                let checkAfterWord = isTileOccupied (tileAfterWord) st
-                
-                if (checkAfterWord <> None || checkBeforeWord <> None)
-                then printfn $"failed"
-                     StateMonad.Failure []
-                else     *) //Endless loop here idk why
-                let isAnyTilesDisturbing =
-                    List.fold
-                      (fun acc e ->
-                        match acc with
-                        | Some v ->
-                            printfn $"The tile before {e} is reserved by another tile."
-                            acc
-                        | None -> match (isTileOccupied (fst e) st) with
-                                  | Some v -> acc //mayby no 
-                                  | None -> printfn $"checking with coords { (fst e)}, where x coord { fst(fst e)} and with y coord {snd(fst e)-1}"
-                                  
-                                            match (isTileOccupied (fst(fst e), snd(fst e)-1) st) with
-                                            | Some v -> acc 
-                                            | None ->
-                                                        printfn $"checking with coords { (fst e)}, where x coord { fst(fst e)} and with y coord {snd(fst e)+1}"
-                                                        (isTileOccupied (fst(fst e), snd(fst e)+1) st)
-                                    
-                    ) None word //up down 
-                
-                match isAnyTilesDisturbing with
-                | None ->
-                    printfn $"The word {word} can be placed on board."
-                    StateMonad.Success word
-                | _     ->
-                           match (vertical) with
-                            |true -> 
-                                printfn $"Trying vertical:"
-                                let wordListBeforeGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY-i-1)), e)) (List.rev wordListBeforeGC)
-                                let wordListAfterGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY+i+1)), e)) wordListAfterGC
-                                printfn $"List before given coordinate {wordListBeforeGC_Coordinates} and after {wordListAfterGC_Coordinates}"
-                                
-                                let word = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
-                                
-                                let tileBeforeWord = fst (fst wordListBeforeGC_Coordinates[0]) , snd(fst wordListBeforeGC_Coordinates[0])-1
-                                let tileAfterWord = fst (fst wordListAfterGC_Coordinates[wordListAfterGC_Coordinates.Length]) , snd(fst wordListAfterGC_Coordinates[wordListAfterGC_Coordinates.Length])+1
-            
-                                let checkBeforeWord = isTileOccupied (tileBeforeWord) st
-                                let checkAfterWord = isTileOccupied (tileAfterWord) st
-                                
-                                if (checkAfterWord <> None || checkBeforeWord <> None)
-                                then printfn $"failed"
-                                     StateMonad.Failure []
-                                else     
-                                let isAnyTilesDisturbing =
-                                    List.fold
-                                      (fun acc e -> 
-                                        match acc with
-                                        | Some v ->
-                                            printfn $"The tile before {e} is reserved by another tile."
-                                            acc
-                                        | None -> match (isTileOccupied (fst e) st) with
-                                                  | Some v -> acc 
-                                                  | None -> match (isTileOccupied (fst(fst e)-1, snd(fst e)) st) with
-                                                            | Some v -> acc 
-                                                            | None -> (isTileOccupied (fst(fst e)+1, snd(fst e)) st)
-                                                    
-                                    ) None word //left right 
-                                match isAnyTilesDisturbing with
-                                | None ->
-                                    printfn $"The word {word} can be placed on board."
-                                    StateMonad.Success word
-                                | _     -> StateMonad.Failure word
-                            | false ->
-                                printfn $"failed"
-                                StateMonad.Failure [] //Not possible to plave the word
-                
-        | false ->
-            match (vertical) with
-            |true -> 
-                printfn $"Trying vertical:"
-                let wordListBeforeGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY-i-1)), e)) (List.rev wordListBeforeGC)
-                let wordListAfterGC_Coordinates = List.mapi (fun i e ->((gcX, (gcY+i+1)), e)) wordListAfterGC
-                printfn $"List before given coordinate {wordListBeforeGC_Coordinates} and after {wordListAfterGC_Coordinates}"
-                
-                let word = wordListBeforeGC_Coordinates@wordListAfterGC_Coordinates
-                
-                printfn $"Word {word}"
-                
-                (*let tileBeforeWord = fst (fst wordListBeforeGC_Coordinates[0]) , snd(fst wordListBeforeGC_Coordinates[0])-1
-                let tileAfterWord = fst (fst wordListAfterGC_Coordinates[wordListAfterGC_Coordinates.Length]) , snd(fst wordListAfterGC_Coordinates[wordListAfterGC_Coordinates.Length])+1
-                
-                printfn $"tileBeforeWord {tileBeforeWord}, and tileAftereWord {tileAfterWord}"
-                
-                let checkBeforeWord = isTileOccupied (tileBeforeWord) st
-                let checkAfterWord = isTileOccupied (tileAfterWord) st
-                
-                if (checkAfterWord <> None || checkBeforeWord <> None)
-                then printfn $"failed"
-                     StateMonad.Failure []
-                else *) //This givesa enddless loop idk why    
-                let isAnyTilesDisturbing =
-                    List.fold
-                      (fun acc e -> 
-                        match acc with
-                        | Some v ->
-                            printfn $"The tile before {e} is reserved by another tile."
-                            acc
-                        | None -> match (isTileOccupied (fst e) st) with
-                                  | Some v -> acc 
-                                  | None -> match (isTileOccupied (fst(fst e)-1, snd(fst e)) st) with
-                                            | Some v -> acc 
-                                            | None -> (isTileOccupied (fst(fst e)+1, snd(fst e)) st)
-                                    
-                    ) None word //left right 
-                match isAnyTilesDisturbing with
-                | None ->
-                    printfn $"The word {word} can be placed on board."
-                    StateMonad.Success word
-                | _     -> StateMonad.Failure word
-            | false ->
-                printfn $"failed"
-                StateMonad.Failure [] //Not possible to plave the word
     
-    let findCoordsForFirstWord (w : letter list) (st : State.state) : StateMonad.Result<'a, word> =
-        let x, y = st.board.center
-        let wl = List.mapi (fun i e ->(x+i, y), e) w
-        let b =
-            List.fold (fun acc e ->
-                match acc with
-                | Some v -> acc
-                | None -> (isTileOccupied (fst e) st)) None wl
-        match b with
-            | None -> StateMonad.Success wl
-            | _     -> StateMonad.Failure wl
-    
-    let findMove (hand : letter list ) (st : State.state) (pieces:Map<uint32,tile>) : word =
-        //printfn $"From pieces to hand : hand {hand}"
-        
+    let findMove (hand : letter list ) (st : State.state) d : word list =
         match Map.isEmpty st.boardTiles with
         | true  ->
-             printfn $"findMove : Board is empty"
-             match (findCoordsForFirstWord (findFirstWord hand st.dict st) st) with
-             | StateMonad.Success v ->
-                 printfn $"findMove: empty board : returning word {v}"
-                 v
-             | StateMonad.Failure _ -> []
+             let words = findFirstWord hand st
+             List.fold (fun acc e -> (findCoordsForFirstWord e st)::acc) [] words
         | false ->
-             let givenChars = List.rev <| Map.toList st.boardTiles
-             
-             let rec aux (ws : letter list list) (gcCoords : coord) (givenChar : letter) =
-                 //printfn $"Given char in aux {givenChar}"
-                 //printfn $"Given gccoords before stuff {gcCoords}"
-                 //printfn $"print ws before stuff {ws}"
-                 match ws with
-                 | x::xs    ->
-                     printfn $"findMove : Board is NOT empty"
-                     match (findCoordsForWord x gcCoords givenChar st) with
-                     | StateMonad.Success v    ->
-                         printfn $"findMove: not empty board : returning word {v}"
-                         v
-                     | StateMonad.Failure v     -> aux xs gcCoords givenChar
-                 | []       -> []
-             
-             let rec miniAux (givenChars : (coord * (char * uint32)) list ) (pieces:Map<uint32,tile>) =
-                 if (givenChars.IsEmpty)
-                 then []
-                 else
-                     let id = snd (snd givenChars.Head) 
-                     let tile = (Map.find id pieces)
-                     //let fakeTile : tile =      Set.add ((snd givenChars.Head), 1) Set.empty
-                     let letter : letter = (id, tile)
-                     
-                     printfn $"Mie find letter {letter}"
-                     printfn $"Mie find hand {hand }"
-                     let words = findWordOnTile letter hand st.dict
-                     //printfn $"Mie Find Words {words[0]}"
-                     
-                     let l = List.rev givenChars
-                     if words.IsEmpty
-                     then miniAux (l.Tail) pieces
-                     else
-                         //printfn $"before aux call what is coords? {fst givenChars.Head}"
-                         aux words (fst givenChars.Head) letter
-                     
-             miniAux givenChars pieces
-
-    let idToTile (pieces:Map<uint32,tile>) (hand : MultiSet<uint32>) : letter list =
-        MultiSet.fold (fun (acc: letter list) (i : uint32) _ -> (i, (Map.find i pieces))::acc) [] hand
-
+            let givenChars = Map.toList st.boardTiles
+            let rec aux (ws : letter list list) (gcCoords : coord) (givenChar : letter) acc : word list =
+                 List.fold (fun acc e -> ((findCoordsForWord e gcCoords givenChar st Right)::acc)) [] ws
+                 
+            List.fold (fun acc e ->
+                printfn $"Trying to lay word on given char {e}"
+                let fakeTile : tile = Set.add ((fst (snd e)), 0) Set.empty
+                let fakeLetter : letter = (0u, fakeTile)
+                let words = findWordOnTile fakeLetter hand st Right //TODO fix direction
+                let word = aux words (fst e) fakeLetter [] 
+                (word@acc)
+                ) [] givenChars
+            
+    
     let playGame cstream (pieces:Map<uint32,tile>) (st : State.state) =
+       
+        
+          
 
         let rec aux (st : State.state) =
             Print.printHand pieces (State.hand st)
             
             debugPrint (sprintf "charsOnHand : %A \n" (charsOnHand pieces st))
             let newHand = idToTile pieces st.hand
-            
 
-            // remove the force print when you move on from manual input (or when you have learnt the format)
-            forcePrint "Input move (format '(<x-coordinate> <y-coordinate> <piece id><character><point-value> )*', note the absence of space between the last inputs)\n\n"
-            
-            //let input =  System.Console.ReadLine()
-            //let move = RegEx.parseMove input
-            //let exchange = RegEx.parseExchange input
-
-            //debugPrint (sprintf "Player %d -> Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
-            
-        
             let changeTiles =
                 printfn $"Changing tiles"
                 let hand = toList st.hand
-                if st.bag > 2u
-                then hand[0..2] 
-                else hand[0..0] 
+                if st.boardTiles.Count < 92
+                then hand
+                else [] 
             
-            let tilesToChange = changeTiles 
+            let tilesToChange = changeTiles
+            
+            (*if containsWildCard st.hand
+            then
+                printfn $"We have a WILDCARD"
+                match tilesToChange with
+                |[] -> send cstream (SMPass)
+                | _ -> send cstream (SMChange tilesToChange)
+            else *)
+            
             let makeMovePlayable (w : word) =
                 let newTile s : (char * int) = (Set.toList (snd s)).Head
                 List.map (fun e -> (fst e, (fst (snd e),(newTile (snd e))) )) w
-         
-            let goThroughHand =
-                let hands = List.map (fun x -> x :: newHand.Tail) newHand
-                List.fold (fun acc hand -> findMove hand st pieces :: acc) [] hands
+        
             
-            let result = List.sortByDescending (List.length) goThroughHand
+            let result = List.sortByDescending (List.length) (findMove newHand st Right)
+
+            printfn $"result!!!!!! {result}"
             
-            printfn $"all results {result}"
+    
             
-            //It all starts here :)
-            let foundWord = result[0]
+            match result with
+            |[[]] ->
+                    match tilesToChange with
+                    |[] -> send cstream (SMPass)
+                    | _ -> send cstream (SMChange tilesToChange)
+            |[] ->
+                    match tilesToChange with
+                    |[] -> send cstream (SMPass)
+                    | _ -> send cstream (SMChange tilesToChange)
+            |_ ->
+                
+                //It all starts here :)
+                let foundWord = result[0]// findMove newHand st pieces// filteredResults[0] //result[0]
             
-            match foundWord with
-            | x::xs ->
+                printfn $"foundWord {foundWord}"
+                printfn $"Make move playeble {makeMovePlayable foundWord}"
                 send cstream (SMPlay (makeMovePlayable foundWord))
-            | [] -> send cstream (SMChange tilesToChange)
-
+            
+            System.Console.ReadLine()
             let msg = recv cstream
-            //debugPrint (sprintf "Player %d <- Server:\n%A\n" (State.playerNumber st) move) // keep the debug lines. They are useful.
-
+    
             match msg with
             | RCM (CMPlaySuccess(ms, points, newPieces)) ->
                 (* Successful play by you. Update your state (remove old tiles, add the new ones, change turn, etc) *)
@@ -517,11 +356,10 @@ module Scrabble =
                 aux st'
                 
             | RCM (CMChangeSuccess(newPieces)) ->
-                let movedTiles = ofList tilesToChange
-                let handWithoutMovedTiles = subtract st.hand movedTiles 
-                let newHand = List.fold (fun acc (a, times) -> add a times acc) handWithoutMovedTiles newPieces
-                let switchUpBoardTiles = Map.ofList <| (List.rev <| Map.toList st.boardTiles)
-                let st' = State.mkState st.board st.dict st.playerNumber newHand st.bag  switchUpBoardTiles//hvis der er problem med at der mangler brikker så er det nok her der skal fixes noget
+                printfn $"New Piecies {newPieces}"
+                //let switchUpBoardTiles = Map.ofList <| (List.rev <| Map.toList st.boardTiles)
+                let newHand = List.fold (fun acc (a, times) -> add a times acc) empty newPieces
+                let st' = State.mkState st.board st.dict st.playerNumber newHand st.bag st.boardTiles
                 aux st'
                 
             | RCM (CMPlayed (pid, ms, points)) -> // not relevant : since we do not offer multiplayer
